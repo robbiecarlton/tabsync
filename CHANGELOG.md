@@ -10,6 +10,8 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **server 0.2.0:** database schema and migration, the five sync endpoints with hashed bearer
+  auth, retention pruning (after upload and daily), body cap, rate limits, CORS allow-list.
 - **shared 0.2.0:** snapshot types and validation, URL normalization and capture rules,
   fingerprinting, tab/window matching, layout diffs, retention pruning and restore labels,
   and crypto helpers (secret format, HKDF, AES-GCM with AAD, gzip).

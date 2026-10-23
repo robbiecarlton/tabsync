@@ -7,6 +7,20 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-22
+
+### Added
+
+- Schema and first migration (`0000_init`, with down): `profiles` and `snapshots`, including
+  the server-set `received_at` and indexes on `(profile_id, created_at desc)` and
+  `(profile_id, received_at desc)`.
+- `POST /v1/profiles`, `GET /v1/snapshots/latest` (ETag / 304), `GET /v1/snapshots`,
+  `GET /v1/snapshots/:id`, `POST /v1/snapshots` (idempotent, clock-skew check).
+- Bearer auth as `<profileId>.<authToken>` with hashed tokens and constant-time comparison.
+- Retention pruning after each upload and a daily sweep, protecting the latest snapshot.
+- 2 MB body cap, in-memory rate limits (per IP, per profile, registrations), CORS allow-list,
+  optional HTTPS enforcement behind a proxy.
+
 ## [0.1.0] - 2026-10-22
 
 ### Added
