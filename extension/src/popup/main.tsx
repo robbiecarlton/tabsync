@@ -74,6 +74,9 @@ function BehindCard({
         <strong>{behind.deviceName}</strong> has newer tabs ({behind.summary}).
       </p>
       <p class="muted small">Snapshot from {timeAgo(Date.parse(behind.createdAt), Date.now())}.</p>
+      <button class="link-button" onClick={() => openSnapshots(`now/vs/${behind.snapshotId}`)}>
+        See what changed →
+      </button>
       <ModeChoice mode={mode} onChange={setMode} />
       {mode === 'match-exactly' && surplus > 0 && (
         <label class="choice">
@@ -102,9 +105,9 @@ function BehindCard({
 }
 
 /** Opens the snapshot browser, optionally on one snapshot. */
-function openSnapshots(snapshotId?: string) {
+function openSnapshots(route?: string) {
   void chrome.tabs.create({
-    url: chrome.runtime.getURL(`snapshots.html${snapshotId ? `#${snapshotId}` : ''}`),
+    url: chrome.runtime.getURL(`snapshots.html${route ? `#${route}` : ''}`),
   });
 }
 
@@ -157,6 +160,9 @@ function ConflictCard({
           {conflict.groupsChanged === 1 ? 'group differs' : 'groups differ'}
         </p>
       )}
+      <button class="link-button" onClick={() => openSnapshots(`now/vs/${conflict.snapshotId}`)}>
+        Compare in detail →
+      </button>
       <div class="resolve">
         <button class="primary" disabled={busy} onClick={() => onResolve('merge')}>
           Merge

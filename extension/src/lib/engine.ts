@@ -53,6 +53,7 @@ export interface EngineDeps {
 }
 
 export interface BehindInfo {
+  snapshotId: string;
   deviceName: string;
   createdAt: string;
   /** e.g. "3 opened, 1 closed, 1 group changed" (current tabs → theirs). */
@@ -72,6 +73,7 @@ export interface TabSummary {
 }
 
 export interface ConflictInfo {
+  snapshotId: string;
   deviceName: string;
   createdAt: string;
   /** Tabs open here but not in theirs (first few), and the total. */
@@ -875,6 +877,7 @@ export class SyncEngine {
           ...(t.favIconUrl ? { favIconUrl: t.favIconUrl } : {}),
         }));
       view.conflict = {
+        snapshotId: state.remote.snapshotId,
         deviceName: state.remote.device.name,
         createdAt: state.remote.createdAt,
         onlyHere: summarize(diff.opened),
@@ -890,6 +893,7 @@ export class SyncEngine {
       ]);
       const diff = diffLayouts(captureLayout(windows, groups), state.remote.windows);
       view.behind = {
+        snapshotId: state.remote.snapshotId,
         deviceName: state.remote.device.name,
         createdAt: state.remote.createdAt,
         summary: describeDiff(diff),

@@ -7,6 +7,13 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-23
+
+### Added
+
+- `compareLayouts`: opened, closed and moved tabs between two layouts, with each moved tab's
+  reasons (window, group, pinned, position) and locations.
+
 ## [1.0.0] - 2026-10-23
 
 ### Changed

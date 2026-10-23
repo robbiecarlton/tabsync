@@ -416,3 +416,13 @@ button.link-button {
   color: var(--accent);
   text-align: left;
 }
+
+select {
+  font: inherit;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  max-width: 100%;
+}

@@ -2,7 +2,14 @@ import { NEW_TAB_URL } from '@tabsync/shared';
 import { group, tab, win } from '@tabsync/shared/testing';
 import { describe, expect, it } from 'vitest';
 import { openGroup, openOrFocusTab, openTab } from '../src/lib/open';
-import { groupByDay, hostOf, windowSections } from '../src/ui/snapshot-view';
+import {
+  describeMove,
+  groupByDay,
+  hostOf,
+  parseRoute,
+  routeHash,
+  windowSections,
+} from '../src/ui/snapshot-view';
 import { FakeBrowser } from './fakes';
 
 describe('windowSections', () => {
@@ -164,5 +171,38 @@ describe('opening from a snapshot', () => {
     await openGroup(b, w.id, g, [tab('javascript:x'), tab('https://ok/')]);
     expect(b.windows[0]!.tabs.map((t) => t.url)).toEqual(['https://current/', 'https://ok/']);
     expect(await openGroup(b, w.id, g, [tab('javascript:x')])).toBeUndefined();
+  });
+});
+
+describe('describeMove', () => {
+  const at = (extra: object = {}) => ({ window: 1, index: 0, pinned: false, ...extra });
+  it('describes each reason', () => {
+    expect(
+      describeMove({
+        tab: tab('https://a/'),
+        from: at({ group: { title: 'Work', color: 'red' } }),
+        to: at({ window: 2, pinned: true }),
+        reasons: ['window', 'group', 'pinned', 'position'],
+      }),
+    ).toEqual(['Window 1 → 2', 'Work → no group', 'pinned', 'reordered']);
+    expect(
+      describeMove({
+        tab: tab('https://a/'),
+        from: at({ pinned: true }),
+        to: at({ group: { title: '', color: 'red' } }),
+        reasons: ['group', 'pinned'],
+      }),
+    ).toEqual(['no group → untitled group', 'unpinned']);
+  });
+});
+
+describe('routes', () => {
+  it('parses and builds view and compare routes', () => {
+    expect(parseRoute('')).toEqual({ none: true });
+    expect(parseRoute('#abc')).toEqual({ view: 'abc' });
+    expect(parseRoute('#abc/vs/now')).toEqual({ compare: { a: 'abc', b: 'now' } });
+    expect(parseRoute('#now/vs/abc')).toEqual({ compare: { a: 'now', b: 'abc' } });
+    expect(routeHash({ compare: { a: 'x', b: 'y' } })).toBe('#x/vs/y');
+    expect(routeHash({ view: 'x' })).toBe('#x');
   });
 });

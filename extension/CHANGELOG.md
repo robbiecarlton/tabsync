@@ -7,6 +7,16 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-23
+
+### Added
+
+- Diffs in the snapshot browser: compare a snapshot with what's open now, or with another
+  snapshot, listing opened, closed and moved tabs (with where they moved). Clicking any tab
+  focuses it if open, otherwise opens it. Swap sides, and refresh the open-tabs side.
+- "See what changed" on the popup's Behind card and "Compare in detail" on the Conflict card
+  open that comparison.
+
 ## [1.2.1] - 2026-10-23
 
 ### Changed
