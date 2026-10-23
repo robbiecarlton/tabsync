@@ -8,7 +8,10 @@ export interface BrowserApi {
   getGroups(): Promise<BrowserGroup[]>;
   setBadge(badge: Badge): Promise<void>;
 
-  /** Opens a window with one tab (`url` undefined = New Tab page). */
+  /**
+   * Opens a window with one tab (`url` undefined = New Tab page). `state` is a hint: only
+   * "maximized" is restored, and must work with `focused: false`.
+   */
   createWindow(opts: {
     url?: string;
     focused: boolean;
@@ -67,12 +70,15 @@ export const chromeBrowser: BrowserApi = {
     ]);
   },
   async createWindow({ url, focused, state }) {
-    const w = await chrome.windows.create({
-      url,
-      focused,
-      ...(state === 'maximized' || state === 'fullscreen' ? { state } : {}),
-    });
-    return { windowId: w!.id!, tabId: w!.tabs![0]!.id! };
+    // Chrome rejects state "maximized"/"fullscreen" together with focused: false ("Invalid value
+    // for state"), so create a plain window and maximize it afterwards. Fullscreen isn't
+    // restored: on macOS it would open a separate Space.
+    const w = await chrome.windows.create({ url, focused });
+    const windowId = w!.id!;
+    if (state === 'maximized') {
+      await chrome.windows.update(windowId, { state: 'maximized' }).catch(() => undefined);
+    }
+    return { windowId, tabId: w!.tabs![0]!.id! };
   },
   async createTab({ windowId, url, pinned, active }) {
     return (await chrome.tabs.create({ windowId, url, pinned, active })).id!;

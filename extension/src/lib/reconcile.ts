@@ -107,6 +107,11 @@ export function planApply(windows: BrowserWindow[], target: SnapWindow[]): Apply
   };
 }
 
+export interface ApplyResult {
+  /** URLs the browser refused to open (left out rather than aborting the apply). */
+  skipped: string[];
+}
+
 export interface ApplyOptions {
   mode: ApplyMode;
   /** "Match exactly" closes surplus windows only when the user agreed to it. */
@@ -124,21 +129,23 @@ export async function applyLayout(
   browser: BrowserApi,
   target: SnapWindow[],
   options: ApplyOptions,
-): Promise<void> {
+): Promise<ApplyResult> {
   const [windows, groups] = await Promise.all([browser.getWindows(), browser.getGroups()]);
   const plan = planApply(windows, target);
   const toDiscard: number[] = [];
+  const skipped: string[] = [];
 
   for (const wp of plan.windows) {
     const existing = windows.find((w) => w.id === wp.windowId);
     if (existing && isAlreadyApplied(existing, groups, wp, options.mode)) continue;
-    await applyWindow(browser, wp, existing, options.mode, toDiscard);
+    await applyWindow(browser, wp, existing, options.mode, toDiscard, skipped);
   }
 
   if (options.mode === 'match-exactly' && options.closeSurplusWindows) {
     for (const id of plan.surplusWindowIds) await browser.removeWindow(id);
   }
   for (const id of toDiscard) await browser.discardTab(id);
+  return { skipped };
 }
 
 function isAlreadyApplied(
@@ -163,11 +170,15 @@ async function applyWindow(
   existing: BrowserWindow | undefined,
   mode: ApplyMode,
   toDiscard: number[],
+  skipped: string[],
 ): Promise<void> {
   const { target } = wp;
-  const tabIds: number[] = [];
+  /** Per target tab; undefined where the browser refused to open it. */
+  const tabIds: (number | undefined)[] = [];
   let windowId: number;
   const created = new Set<number>();
+  /** Placeholder tab of a new window whose first URL was refused. */
+  const toCloseLater: number[] = [];
 
   if (existing) {
     windowId = existing.id!;
@@ -178,46 +189,62 @@ async function applyWindow(
     await browser.ungroupTabs(grouped);
   } else {
     const first = target.tabs[0]!;
-    const w = await browser.createWindow({
-      url: urlToOpen(first.url),
-      focused: false,
-      state: target.state,
-    });
+    let w;
+    try {
+      w = await browser.createWindow({
+        url: urlToOpen(first.url),
+        focused: false,
+        state: target.state,
+      });
+      tabIds[0] = w.tabId;
+      if (first.pinned) await browser.updateTab(w.tabId, { pinned: true });
+    } catch {
+      // The first URL was refused; open the window on a New Tab page and drop that tab.
+      w = await browser.createWindow({ focused: false, state: target.state });
+      skipped.push(first.url);
+      tabIds[0] = undefined;
+      toCloseLater.push(w.tabId);
+    }
     windowId = w.windowId;
-    tabIds[0] = w.tabId;
     created.add(w.tabId);
-    if (first.pinned) await browser.updateTab(w.tabId, { pinned: true });
   }
 
   const liveTabs = new Map((existing?.tabs ?? []).map((t) => [t.id, t]));
   for (const [i, tab] of target.tabs.entries()) {
-    if (tabIds[i] !== undefined) continue;
+    if (i === 0 && !existing) continue;
     const reuse = wp.reuse[i];
     if (reuse !== undefined) {
       tabIds[i] = reuse;
       if (liveTabs.get(reuse)?.pinned !== tab.pinned)
         await browser.updateTab(reuse, { pinned: tab.pinned });
     } else {
-      const id = await browser.createTab({
-        windowId,
-        url: urlToOpen(tab.url),
-        pinned: tab.pinned,
-        active: false,
-      });
-      tabIds[i] = id;
-      created.add(id);
+      try {
+        const id = await browser.createTab({
+          windowId,
+          url: urlToOpen(tab.url),
+          pinned: tab.pinned,
+          active: false,
+        });
+        tabIds[i] = id;
+        created.add(id);
+      } catch {
+        // One bad URL (e.g. one the browser won't open from an extension) mustn't abort the rest.
+        skipped.push(tab.url);
+      }
     }
   }
+  const placed = tabIds.filter((id): id is number => id !== undefined);
 
   // Target order (pinned tabs are first in a valid snapshot). Each tab lands right after the
   // previous target tab, which is ungrouped at this point, so it can't join a leftover group.
-  for (const [i, id] of tabIds.entries()) await browser.moveTab(id, windowId, i);
+  for (const [i, id] of placed.entries()) await browser.moveTab(id, windowId, i);
 
   const groupIds: { id: number; collapsed: boolean }[] = [];
   for (const g of target.groups) {
-    const members = target.tabs.flatMap((t, i) =>
-      t.groupKey === g.key && !t.pinned ? [tabIds[i]!] : [],
-    );
+    const members = target.tabs.flatMap((t, i) => {
+      const id = tabIds[i];
+      return t.groupKey === g.key && !t.pinned && id !== undefined ? [id] : [];
+    });
     if (members.length === 0) continue;
     const id = await browser.groupTabs(members, windowId);
     await browser.updateGroup(id, { title: g.title, color: g.color });
@@ -231,6 +258,7 @@ async function applyWindow(
   const toClose = wp.extras.filter(
     (id) => mode === 'match-exactly' || isNewTabUrl(liveTabs.get(id)?.url ?? ''),
   );
+  if (placed.length > 0) toClose.push(...toCloseLater);
   await browser.removeTabs(toClose);
 
   // New windows show the snapshot's active tab; existing windows keep the user's active tab
@@ -239,14 +267,8 @@ async function applyWindow(
   const activeSurvives = active && !toClose.includes(active.id!);
   let activeId: number | undefined;
   if (!activeSurvives) {
-    activeId =
-      tabIds[
-        Math.max(
-          0,
-          target.tabs.findIndex((t) => t.active),
-        )
-      ]!;
-    await browser.updateTab(activeId, { active: true });
+    activeId = tabIds[target.tabs.findIndex((t) => t.active)] ?? placed[0];
+    if (activeId !== undefined) await browser.updateTab(activeId, { active: true });
   }
-  for (const id of created) if (id !== activeId) toDiscard.push(id);
+  for (const id of created) if (id !== activeId && !toClose.includes(id)) toDiscard.push(id);
 }

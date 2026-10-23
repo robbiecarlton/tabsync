@@ -282,6 +282,27 @@ describe('applyLayout', () => {
     expect(b.ops).toEqual([]);
   });
 
+  it('leaves out a tab the browser refuses to open and applies the rest', async () => {
+    b.addWindow(['https://a/']);
+    b.refusedUrls.add('javascript:void(0)');
+    const t = [
+      win(
+        [
+          tab('https://a/'),
+          tab('javascript:void(0)', { groupKey: 'g' }),
+          tab('https://c/', { groupKey: 'g' }),
+        ],
+        [group('g', { title: 'G' })],
+      ),
+      win([tab('javascript:void(0)', { active: true }), tab('https://second/')]),
+    ];
+    const { skipped } = await applyLayout(b, t, { mode: 'match-exactly' });
+    expect(skipped).toEqual(['javascript:void(0)', 'javascript:void(0)']);
+    expect(b.windows.map(urls)).toEqual([['https://a/', 'https://c/'], ['https://second/']]);
+    expect(b.groups.map((g) => g.title)).toEqual(['G']);
+    expect(b.windows[1]!.tabs[0]!.active).toBe(true);
+  });
+
   it('handles 200+ tabs, all unloaded except the active one', async () => {
     b.addWindow(['chrome://newtab/']);
     const many = Array.from({ length: 220 }, (_, i) =>

@@ -10,6 +10,8 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **extension 0.3.1:** Apply failed with "Invalid value for state" when opening a window for a
+  maximized snapshot window; one unopenable URL no longer aborts an apply.
 - **server 0.2.1:** first start on a fresh checkout failed creating the PGlite data directory.
 
 ### Added

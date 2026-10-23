@@ -197,6 +197,23 @@ describe('apply', () => {
     expect((await desk.engine.status()).status).toBe('behind');
   });
 
+  it('explains a browser failure partway through, after the undo point was saved', async () => {
+    laptop.browser.addWindow(['https://laptop-second-window.example/']);
+    await laptop.engine.syncNow();
+    await desk.engine.pull();
+    desk.browser.failCreateWindow = 'Invalid value for state';
+    const err = await desk.engine.applyRemote('add-missing').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApplyError);
+    expect((err as Error).message).toMatch(
+      /Invalid value for state.*previous tabs were saved first/,
+    );
+    expect((await decryptAll()).some((s) => s.reason === 'pre-restore')).toBe(true);
+    // Echo suppression is released, so later edits still count.
+    desk.browser.failCreateWindow = undefined;
+    await desk.engine.applyRemote('add-missing');
+    expect((await desk.engine.status()).status).toBe('synced');
+  });
+
   it('the pre-restore snapshot restores the previous layout', async () => {
     const original = await layoutOf(desk);
     await desk.engine.applyRemote('match-exactly');

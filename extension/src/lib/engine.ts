@@ -505,7 +505,17 @@ export class SyncEngine {
     // 2. Reconcile, ignoring the tab events it causes.
     this.applying = true;
     try {
-      await applyLayout(this.deps.browser, target.windows, { mode, closeSurplusWindows });
+      const { skipped } = await applyLayout(this.deps.browser, target.windows, {
+        mode,
+        closeSurplusWindows,
+      });
+      for (const url of skipped) log(`Couldn’t open ${url}; left it out`);
+    } catch (err) {
+      log(`Apply failed: ${err instanceof Error ? err.message : String(err)}`);
+      throw new ApplyError(
+        `Couldn’t finish applying (${err instanceof Error ? err.message : String(err)}). ` +
+          'Some tabs may have changed; your previous tabs were saved first.',
+      );
     } finally {
       this.applying = false;
     }

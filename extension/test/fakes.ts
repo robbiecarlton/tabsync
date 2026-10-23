@@ -217,11 +217,19 @@ export class FakeBrowser implements BrowserApi {
     this.badge = badge;
   }
 
+  /** Makes the next createWindow call fail, as a browser error would. */
+  failCreateWindow?: string;
+
   async createWindow({ url, focused }: { url?: string; focused: boolean }) {
+    if (this.failCreateWindow) throw new Error(this.failCreateWindow);
+    if (url && this.refusedUrls.has(url)) throw new Error(`Cannot open ${url}`);
     const w = this.addWindow([url ?? NEW_TAB_URL], { focused });
     this.ops.push(`createWindow ${w.id}`);
     return { windowId: w.id, tabId: w.tabs[0]!.id };
   }
+
+  /** URLs createTab/createWindow refuse to open, as the browser does for some schemes. */
+  refusedUrls = new Set<string>();
 
   async createTab({
     windowId,
@@ -234,6 +242,7 @@ export class FakeBrowser implements BrowserApi {
     pinned: boolean;
     active: boolean;
   }) {
+    if (url && this.refusedUrls.has(url)) throw new Error(`Cannot open ${url}`);
     const w = this.window(windowId);
     const tab = this.newTab(url ?? NEW_TAB_URL, { pinned });
     if (active) for (const t of w.tabs) t.active = false;

@@ -7,6 +7,17 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-22
+
+### Fixed
+
+- Apply failed with "Invalid value for state" when it had to open a window for a snapshot
+  window that was maximized: Chrome rejects `state: "maximized"` with `focused: false`.
+  Windows are now created plain and maximized afterwards; fullscreen is no longer restored.
+- A tab the browser refuses to open no longer aborts the whole apply; it's left out and
+  logged.
+- Apply errors now say that the previous tabs were saved first.
+
 ## [0.3.0] - 2026-10-22
 
 ### Added
