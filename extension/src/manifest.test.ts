@@ -12,6 +12,8 @@ describe('buildManifest', () => {
   it('requests only the spec permissions and no broad host access', () => {
     expect(manifest.permissions).toEqual(['tabs', 'tabGroups', 'storage', 'alarms', 'favicon']);
     expect(manifest.host_permissions).not.toContain('<all_urls>');
+    // Broad patterns are optional only: granted per origin when a custom server URL is saved.
+    expect(manifest.optional_host_permissions).toEqual(['http://*/*', 'https://*/*']);
   });
 
   it('points at the built entry files', () => {

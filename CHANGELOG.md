@@ -14,6 +14,9 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **extension 0.2.0:** setup (create / join with secret), capture of windows, tabs and groups,
+  debounced encrypted push with retry and restart safety, popup status and Sync now, toolbar
+  badge, options page with settings, reveal secret, disconnect and debug log.
 - **server 0.2.0:** database schema and migration, the five sync endpoints with hashed bearer
   auth, retention pruning (after upload and daily), body cap, rate limits, CORS allow-list.
 - **shared 0.2.0:** snapshot types and validation, URL normalization and capture rules,

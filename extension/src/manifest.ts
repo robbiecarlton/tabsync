@@ -13,6 +13,8 @@ export function buildManifest({ version }: ManifestOptions): chrome.runtime.Mani
     version,
     permissions: ['tabs', 'tabGroups', 'storage', 'alarms', 'favicon'],
     host_permissions: SERVER_HOST_PERMISSIONS,
+    // Requested at runtime for the one origin entered as a custom server URL in options.
+    optional_host_permissions: ['http://*/*', 'https://*/*'],
     background: { service_worker: 'background.js', type: 'module' },
     action: { default_popup: 'popup.html', default_title: 'Set up sync' },
     options_page: 'options.html',
