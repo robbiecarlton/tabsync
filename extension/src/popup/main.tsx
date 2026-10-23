@@ -101,6 +101,13 @@ function BehindCard({
   );
 }
 
+/** Opens the snapshot browser, optionally on one snapshot. */
+function openSnapshots(snapshotId?: string) {
+  void chrome.tabs.create({
+    url: chrome.runtime.getURL(`snapshots.html${snapshotId ? `#${snapshotId}` : ''}`),
+  });
+}
+
 function TabList({ tabs, total }: { tabs: TabSummary[]; total: number }) {
   if (total === 0) return <p class="muted small">None</p>;
   return (
@@ -198,9 +205,12 @@ function HistoryRow({
           </div>
         </div>
         {!open && (
-          <button disabled={busy} onClick={() => setOpen(true)}>
-            Restore
-          </button>
+          <div class="row" style={{ flexWrap: 'nowrap' }}>
+            <button onClick={() => openSnapshots(entry.snapshotId)}>View</button>
+            <button disabled={busy} onClick={() => setOpen(true)}>
+              Restore
+            </button>
+          </div>
         )}
       </div>
       {open && (
@@ -290,6 +300,9 @@ function History({
         <p class="muted small">
           Restoring saves your current tabs first and syncs the result to your other devices.
         </p>
+        <button class="link-button" onClick={() => openSnapshots()}>
+          Browse all snapshots →
+        </button>
       </div>
     </details>
   );

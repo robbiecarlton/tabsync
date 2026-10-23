@@ -7,6 +7,16 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-23
+
+### Added
+
+- Snapshot browser (`snapshots.html`): every snapshot grouped by day with its time, kind and
+  restore-label tag; select one to see its windows, groups (title, colour, collapsed) and tabs
+  (favicon, title, host, pinned). Click a tab to open it (cmd/ctrl-click opens it in the
+  background), or reopen a whole group with its title and colour.
+- Popup history rows have a **View** button, and **Browse all snapshots** opens the browser.
+
 ## [1.1.0] - 2026-10-23
 
 ### Added

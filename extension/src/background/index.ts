@@ -71,6 +71,10 @@ async function handle(request: Request): Promise<unknown> {
       return engine.status();
     case 'history':
       return engine.history();
+    case 'listSnapshots':
+      return engine.listSnapshots();
+    case 'getSnapshot':
+      return engine.getSnapshot(request.id);
     case 'restore':
       await engine.restore(request.snapshotId, request.mode, {
         closeSurplusWindows: request.closeSurplusWindows,

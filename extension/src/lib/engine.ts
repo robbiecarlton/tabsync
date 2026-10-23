@@ -21,6 +21,7 @@ import {
 import {
   ApiError,
   type Credentials as ApiCredentials,
+  type SnapshotMeta,
   type SnapshotRecord,
   type SyncApi,
 } from './api';
@@ -661,6 +662,20 @@ export class SyncEngine {
       this.snapshotCache.delete(this.snapshotCache.keys().next().value!);
     this.snapshotCache.set(id, snapshot);
     return snapshot;
+  }
+
+  /** Metadata for every snapshot on the server, newest first (the snapshot browser's list). */
+  async listSnapshots(): Promise<SnapshotMeta[]> {
+    const session = await this.session();
+    if (!session) throw new Error('Sync is not set up');
+    return session.api.list();
+  }
+
+  /** One snapshot, decrypted (cached; snapshots never change). */
+  async getSnapshot(id: string): Promise<Snapshot> {
+    const session = await this.session();
+    if (!session) throw new Error('Sync is not set up');
+    return this.fetchSnapshot(session, id);
   }
 
   /** Restores a snapshot from history; the result is pushed so other devices see it (D2). */

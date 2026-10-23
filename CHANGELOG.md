@@ -10,6 +10,7 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **extension 1.2.0:** snapshot browser with open-tab and open-group (v2).
 - **extension 1.1.0:** favicons via the `_favicon` API with a stored-URL fallback (v2).
 
 ## [1.0.0] - 2026-10-23

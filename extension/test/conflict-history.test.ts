@@ -216,6 +216,14 @@ describe('history', () => {
     expect(laptop.server.snapshots.filter((s) => s.kind === 'manual')).toHaveLength(0);
   });
 
+  it('lists all snapshots and fetches any one decrypted (for the snapshot browser)', async () => {
+    const metas = await desk.engine.listSnapshots();
+    expect(metas.length).toBe(laptop.server.snapshots.length);
+    const s = await desk.engine.getSnapshot(metas.at(-1)!.id);
+    expect(s.snapshotId).toBe(metas.at(-1)!.id);
+    expect(s.device.name).toBe('Laptop');
+  });
+
   it('remembers the restore mode as the device’s choice', async () => {
     const { points } = await desk.engine.history();
     await desk.engine.restore(points[0]!.snapshotId, 'match-exactly');

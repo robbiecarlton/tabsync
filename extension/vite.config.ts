@@ -29,6 +29,7 @@ export default defineConfig(({ mode }) => ({
         background: resolve(import.meta.dirname, 'src/background/index.ts'),
         popup: resolve(import.meta.dirname, 'popup.html'),
         options: resolve(import.meta.dirname, 'options.html'),
+        snapshots: resolve(import.meta.dirname, 'snapshots.html'),
       },
       output: {
         entryFileNames: '[name].js',

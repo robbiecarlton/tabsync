@@ -1,3 +1,5 @@
+import type { Snapshot } from '@tabsync/shared';
+import type { SnapshotMeta } from './api';
 import type { ConflictChoice, HistoryView, StatusView } from './engine';
 import type { LogLine } from './logger';
 import type { ApplyMode } from './reconcile';
@@ -14,6 +16,8 @@ export interface MessageMap {
   };
   resolve: { request: { type: 'resolve'; choice: ConflictChoice }; result: StatusView };
   history: { request: { type: 'history' }; result: HistoryView };
+  listSnapshots: { request: { type: 'listSnapshots' }; result: SnapshotMeta[] };
+  getSnapshot: { request: { type: 'getSnapshot'; id: string }; result: Snapshot };
   restore: {
     request: { type: 'restore'; snapshotId: string; mode: ApplyMode; closeSurplusWindows: boolean };
     result: StatusView;
