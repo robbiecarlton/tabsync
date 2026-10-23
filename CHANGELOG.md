@@ -16,6 +16,8 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **extension 0.4.0:** conflict detection (including a pre-push check) with Merge / Keep mine
+  / Take theirs, and a history list with restore and undo.
 - **extension 0.3.0:** pull and Behind detection, Apply with add-missing / match-exactly,
   reconcile of windows, tabs, pinned tabs and groups with unloaded tabs, pre-restore undo
   snapshot, echo suppression.

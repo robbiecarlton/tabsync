@@ -1,18 +1,33 @@
 import { render } from 'preact';
 import { useCallback, useEffect, useState } from 'preact/hooks';
-import type { BehindInfo, StatusView } from '../lib/engine';
+import type {
+  BehindInfo,
+  ConflictChoice,
+  ConflictInfo,
+  HistoryEntry,
+  HistoryView,
+  StatusView,
+} from '../lib/engine';
 import { send } from '../lib/messages';
 import type { ApplyMode } from '../lib/reconcile';
-import { STATUS_TEXT, timeAgo } from '../ui/format';
+import { formatWhen, STATUS_TEXT, timeAgo } from '../ui/format';
 import '../ui/styles.css';
 
-function ModeChoice({ mode, onChange }: { mode: ApplyMode; onChange: (m: ApplyMode) => void }) {
+function ModeChoice({
+  mode,
+  onChange,
+  name = 'mode',
+}: {
+  mode: ApplyMode;
+  onChange: (m: ApplyMode) => void;
+  name?: string;
+}) {
   return (
     <div class="choices">
       <label class="choice">
         <input
           type="radio"
-          name="mode"
+          name={name}
           checked={mode === 'add-missing'}
           onChange={() => onChange('add-missing')}
         />
@@ -24,7 +39,7 @@ function ModeChoice({ mode, onChange }: { mode: ApplyMode; onChange: (m: ApplyMo
       <label class="choice">
         <input
           type="radio"
-          name="mode"
+          name={name}
           checked={mode === 'match-exactly'}
           onChange={() => onChange('match-exactly')}
         />
@@ -84,9 +99,200 @@ function BehindCard({
   );
 }
 
+function TabList({ tabs, total }: { tabs: { title: string; url: string }[]; total: number }) {
+  if (total === 0) return <p class="muted small">None</p>;
+  return (
+    <ul class="tab-list">
+      {tabs.map((t) => (
+        <li title={t.url}>{t.title}</li>
+      ))}
+      {total > tabs.length && <li class="muted">+{total - tabs.length} more</li>}
+    </ul>
+  );
+}
+
+function ConflictCard({
+  conflict,
+  onResolve,
+  busy,
+}: {
+  conflict: ConflictInfo;
+  onResolve: (choice: ConflictChoice) => void;
+  busy: boolean;
+}) {
+  const other = conflict.deviceName;
+  return (
+    <div class="card stack">
+      <p>
+        Tabs changed here and on <strong>{other}</strong> (snapshot from{' '}
+        {timeAgo(Date.parse(conflict.createdAt), Date.now())}).
+      </p>
+      <div>
+        <p class="small">
+          <strong>Only here</strong>
+        </p>
+        <TabList tabs={conflict.onlyHere} total={conflict.onlyHereCount} />
+      </div>
+      <div>
+        <p class="small">
+          <strong>Only on {other}</strong>
+        </p>
+        <TabList tabs={conflict.onlyThere} total={conflict.onlyThereCount} />
+      </div>
+      {conflict.groupsChanged > 0 && (
+        <p class="muted small">
+          {conflict.groupsChanged}{' '}
+          {conflict.groupsChanged === 1 ? 'group differs' : 'groups differ'}
+        </p>
+      )}
+      <div class="resolve">
+        <button class="primary" disabled={busy} onClick={() => onResolve('merge')}>
+          Merge
+        </button>
+        <span class="muted small">Add {other}’s tabs here, then sync the result</span>
+        <button disabled={busy} onClick={() => onResolve('keep-mine')}>
+          Keep mine
+        </button>
+        <span class="muted small">Sync this device’s tabs; {other}’s stay in history</span>
+        <button disabled={busy} onClick={() => onResolve('take-theirs')}>
+          Take theirs
+        </button>
+        <span class="muted small">Make this device match {other} (your tabs are saved first)</span>
+      </div>
+    </div>
+  );
+}
+
+function HistoryRow({
+  entry,
+  label,
+  initialMode,
+  onRestore,
+  busy,
+}: {
+  entry: HistoryEntry;
+  label: string;
+  initialMode: ApplyMode;
+  onRestore: (mode: ApplyMode, closeSurplusWindows: boolean) => void;
+  busy: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState(initialMode);
+  const [closeWindows, setCloseWindows] = useState(false);
+  const now = Date.now();
+  return (
+    <li class="history-row">
+      <div class="row spread">
+        <div>
+          <div>{label}</div>
+          <div class="muted small">
+            {formatWhen(Date.parse(entry.createdAt), now)} ·{' '}
+            {entry.mine ? 'this device' : entry.deviceName} · {entry.tabCount}{' '}
+            {entry.tabCount === 1 ? 'tab' : 'tabs'}
+            {entry.kind === 'pre-restore' && ' · before a restore'}
+          </div>
+        </div>
+        {!open && (
+          <button disabled={busy} onClick={() => setOpen(true)}>
+            Restore
+          </button>
+        )}
+      </div>
+      {open && (
+        <div class="stack restore-options">
+          <ModeChoice mode={mode} onChange={setMode} name={`mode-${entry.snapshotId}`} />
+          {mode === 'match-exactly' && entry.surplusWindows > 0 && (
+            <label class="choice">
+              <input
+                type="checkbox"
+                checked={closeWindows}
+                onChange={(e) => setCloseWindows(e.currentTarget.checked)}
+              />
+              <span>
+                Also close {entry.surplusWindows} other{' '}
+                {entry.surplusWindows === 1 ? 'window' : 'windows'}
+              </span>
+            </label>
+          )}
+          <div class="row">
+            <button
+              class="primary"
+              disabled={busy}
+              onClick={() => onRestore(mode, mode === 'match-exactly' && closeWindows)}
+            >
+              {busy ? 'Restoring…' : 'Restore'}
+            </button>
+            <button disabled={busy} onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function History({
+  initialMode,
+  busy,
+  onRestore,
+}: {
+  initialMode: ApplyMode;
+  busy: boolean;
+  onRestore: (snapshotId: string, mode: ApplyMode, closeSurplusWindows: boolean) => void;
+}) {
+  const [history, setHistory] = useState<HistoryView>();
+  const [error, setError] = useState<string>();
+  const load = () => {
+    setError(undefined);
+    send<'history'>({ type: 'history' }).then(setHistory, (e: Error) => setError(e.message));
+  };
+  return (
+    <details
+      class="card"
+      onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && !history && load()}
+    >
+      <summary>History</summary>
+      <div class="stack" style={{ marginTop: '10px' }}>
+        {error && <p class="error-text">{error}</p>}
+        {!history && !error && <p class="muted small">Loading…</p>}
+        {history && (
+          <ul class="history">
+            {history.undo && (
+              <HistoryRow
+                entry={history.undo}
+                label="Undo last apply or restore"
+                initialMode="match-exactly"
+                busy={busy}
+                onRestore={(mode, close) => onRestore(history.undo!.snapshotId, mode, close)}
+              />
+            )}
+            {history.points.map((p) => (
+              <HistoryRow
+                key={p.snapshotId}
+                entry={p}
+                label={p.label}
+                initialMode={initialMode}
+                busy={busy}
+                onRestore={(mode, close) => onRestore(p.snapshotId, mode, close)}
+              />
+            ))}
+            {history.points.length === 0 && !history.undo && (
+              <li class="muted small">No history yet.</li>
+            )}
+          </ul>
+        )}
+        <p class="muted small">
+          Restoring saves your current tabs first and syncs the result to your other devices.
+        </p>
+      </div>
+    </details>
+  );
+}
+
 function Popup() {
   const [view, setView] = useState<StatusView>();
-  const [busy, setBusy] = useState<'sync' | 'apply'>();
+  const [busy, setBusy] = useState<'sync' | 'apply' | 'resolve' | 'restore'>();
   const [problem, setProblem] = useState<string>();
 
   const refresh = useCallback(() => {
@@ -105,7 +311,7 @@ function Popup() {
     };
   }, [refresh]);
 
-  const act = async (kind: 'sync' | 'apply', task: () => Promise<StatusView>) => {
+  const act = async (kind: NonNullable<typeof busy>, task: () => Promise<StatusView>) => {
     setBusy(kind);
     setProblem(undefined);
     try {
@@ -163,6 +369,14 @@ function Popup() {
         />
       )}
 
+      {view.conflict && (
+        <ConflictCard
+          conflict={view.conflict}
+          busy={busy === 'resolve'}
+          onResolve={(choice) => act('resolve', () => send<'resolve'>({ type: 'resolve', choice }))}
+        />
+      )}
+
       {view.lastError && view.status === 'error' && (
         <div class="card">
           <p class="error-text">{view.lastError.message}</p>
@@ -180,6 +394,16 @@ function Popup() {
         </button>
         <button onClick={() => chrome.runtime.openOptionsPage()}>Options</button>
       </div>
+
+      <History
+        initialMode={view.settings.applyMode}
+        busy={busy === 'restore'}
+        onRestore={(snapshotId, mode, closeSurplusWindows) =>
+          act('restore', () =>
+            send<'restore'>({ type: 'restore', snapshotId, mode, closeSurplusWindows }),
+          )
+        }
+      />
     </main>
   );
 }

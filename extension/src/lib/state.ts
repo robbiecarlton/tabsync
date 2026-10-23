@@ -32,6 +32,8 @@ export interface SyncState {
   baseSnapshotId?: string;
   /** Fingerprint of the layout last pushed or adopted; equal means nothing to push. */
   lastFingerprint?: string;
+  /** Fingerprint of the layout as last captured (differs from lastFingerprint = local edits). */
+  localFingerprint?: string;
   /** Captured but not yet confirmed by the server; survives browser restarts. */
   pending?: Snapshot;
   /** Debounce markers: first and latest layout change since the last capture. */

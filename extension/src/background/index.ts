@@ -66,6 +66,16 @@ async function handle(request: Request): Promise<unknown> {
     case 'apply':
       await engine.applyRemote(request.mode, { closeSurplusWindows: request.closeSurplusWindows });
       return engine.status();
+    case 'resolve':
+      await engine.resolveConflict(request.choice);
+      return engine.status();
+    case 'history':
+      return engine.history();
+    case 'restore':
+      await engine.restore(request.snapshotId, request.mode, {
+        closeSurplusWindows: request.closeSurplusWindows,
+      });
+      return engine.status();
     case 'createProfile':
       return engine.createProfile();
     case 'joinProfile':

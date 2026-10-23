@@ -25,6 +25,19 @@ describe('computeStatus', () => {
     expect(computeStatus(true, { pending: {} as never }, now)).toBe('pending');
   });
 
+  it('is behind with an unapplied newer snapshot, and conflict with local edits too', () => {
+    const remote = { snapshotId: 'theirs' } as never;
+    const base = { remote, baseSnapshotId: 'mine', lastFingerprint: 'f1' };
+    expect(computeStatus(true, { ...base, localFingerprint: 'f1' }, now)).toBe('behind');
+    expect(computeStatus(true, { ...base, localFingerprint: 'f2' }, now)).toBe('conflict');
+    expect(badgeFor('conflict', 'Laptop')).toMatchObject({ text: '!', color: '#f9ab00' });
+    expect(badgeFor('behind', 'Laptop')).toMatchObject({
+      text: '!',
+      color: '#1a73e8',
+      title: 'Tab Sync: Laptop has newer tabs',
+    });
+  });
+
   it('keeps transient failures Pending for 5 minutes', () => {
     const lastError = { kind: 'network' as const, message: 'offline', at: now };
     const state = { pending: {} as never, lastError, failingSince: now - ERROR_AFTER_MS + 1 };

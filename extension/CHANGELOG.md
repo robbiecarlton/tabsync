@@ -7,6 +7,19 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-22
+
+### Added
+
+- Conflict state (amber "!"): this device has unpushed edits and another device pushed newer
+  tabs. The popup lists tabs only here and only on the other device, with **Merge**, **Keep
+  mine** and **Take theirs**.
+- The server's latest is re-checked right before every push, so a device that edits before
+  its next pull reports a conflict instead of overwriting the other device's tabs.
+- History in the popup: one restore point per label (1 minute … 1 year) with real time,
+  device and tab count, plus "Undo last apply or restore". Restore uses the same mode choice,
+  saves an undo point first, and syncs the result to other devices.
+
 ## [0.3.1] - 2026-10-22
 
 ### Fixed

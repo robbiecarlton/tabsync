@@ -16,5 +16,25 @@ export const STATUS_TEXT = {
   synced: 'Synced',
   pending: 'Changes waiting to sync',
   behind: 'Newer tabs available',
+  conflict: 'Tabs changed on both devices',
   error: 'Sync error',
 } as const;
+
+/**
+ * A snapshot's real time for the history list: "14:32" today, "Tue 14:32" within a week,
+ * otherwise "12 Oct 14:32" (with the year if it differs).
+ */
+export function formatWhen(at: number, now: number, locale?: string): string {
+  const d = new Date(at);
+  const n = new Date(now);
+  const time = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  if (d.toDateString() === n.toDateString()) return time;
+  if (now - at < 6 * 86_400_000)
+    return `${d.toLocaleDateString(locale, { weekday: 'short' })} ${time}`;
+  const date = d.toLocaleDateString(locale, {
+    day: 'numeric',
+    month: 'short',
+    ...(d.getFullYear() !== n.getFullYear() ? { year: 'numeric' } : {}),
+  });
+  return `${date} ${time}`;
+}

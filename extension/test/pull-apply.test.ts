@@ -117,13 +117,13 @@ describe('behind detection', () => {
     expect(status.lastError?.kind).toBe('decrypt');
   });
 
-  it('pauses pushes while behind so the newer snapshot is not overwritten', async () => {
+  it('holds pushes while behind; local edits make it a conflict', async () => {
     desk.browser.openTab(0, 'https://desk-edit.example/');
     await desk.engine.layoutChanged();
     await settle(desk);
     await desk.engine.syncNow();
     expect(laptop.server.snapshots.filter((s) => s.kind === 'auto')).toHaveLength(1);
-    expect((await desk.engine.status()).status).toBe('behind');
+    expect((await desk.engine.status()).status).toBe('conflict');
   });
 });
 

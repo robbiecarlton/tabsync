@@ -34,6 +34,9 @@ package's `package.json`, so bump the version there.
    there, choose **I have a secret** in options and paste the secret. The badge turns blue
    "!", and the popup offers **Apply** with **Add missing only** or **Make it match
    exactly**.
+5. To see a conflict, edit tabs in both profiles without opening either popup. The second
+   device to sync turns amber "!" and offers **Merge**, **Keep mine** or **Take theirs**.
+   **History** at the bottom of the popup restores earlier states.
 
 ## How it works
 
@@ -73,4 +76,4 @@ engine over the same storage. The HTTP client is tested against a fake `fetch`.
 groups, a tab dropped inside a group joining it, empty groups vanishing, and a window closing
 with its last tab. Reconcile tests apply a target layout and check that the captured result
 matches. Two-device tests (`pull-apply.test.ts`) run a "Laptop" and a "Desk" engine against
-one fake server.
+one fake server; `conflict-history.test.ts` covers conflicts, history labels, restore and undo.

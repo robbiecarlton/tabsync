@@ -1,4 +1,4 @@
-import type { StatusView } from './engine';
+import type { ConflictChoice, HistoryView, StatusView } from './engine';
 import type { LogLine } from './logger';
 import type { ApplyMode } from './reconcile';
 import type { Settings } from './state';
@@ -10,6 +10,12 @@ export interface MessageMap {
   pull: { request: { type: 'pull' }; result: StatusView };
   apply: {
     request: { type: 'apply'; mode: ApplyMode; closeSurplusWindows: boolean };
+    result: StatusView;
+  };
+  resolve: { request: { type: 'resolve'; choice: ConflictChoice }; result: StatusView };
+  history: { request: { type: 'history' }; result: HistoryView };
+  restore: {
+    request: { type: 'restore'; snapshotId: string; mode: ApplyMode; closeSurplusWindows: boolean };
     result: StatusView;
   };
   createProfile: { request: { type: 'createProfile' }; result: { secret: string } };

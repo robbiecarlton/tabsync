@@ -11,6 +11,7 @@ import {
   generateSecret,
   InvalidSecretError,
   parseSecret,
+  resolveRestorePoints,
   toBase64Url,
   FORMAT_VERSION,
   type ProfileKeys,
@@ -31,7 +32,7 @@ import type { Log } from './logger';
 import { applyLayout, planApply, type ApplyMode } from './reconcile';
 import { ECHO_GRACE_MS, PULL_MIN_INTERVAL_MS, pushDueAt, retryDelay, SETTLE_MS } from './schedule';
 import type { ErrorKind, Settings, StateRepo, SyncState } from './state';
-import { badgeFor, computeStatus, isBehind, type SyncStatus } from './status';
+import { badgeFor, computeStatus, isBehind, isConflict, type SyncStatus } from './status';
 
 export interface EngineDeps {
   repo: StateRepo;
@@ -56,6 +57,45 @@ export interface BehindInfo {
   surplusWindows: number;
 }
 
+export interface TabSummary {
+  title: string;
+  url: string;
+}
+
+export interface ConflictInfo {
+  deviceName: string;
+  createdAt: string;
+  /** Tabs open here but not in theirs (first few), and the total. */
+  onlyHere: TabSummary[];
+  onlyHereCount: number;
+  /** Tabs in theirs but not open here (first few), and the total. */
+  onlyThere: TabSummary[];
+  onlyThereCount: number;
+  groupsChanged: number;
+}
+
+export type ConflictChoice = 'keep-mine' | 'take-theirs' | 'merge';
+
+export interface HistoryEntry {
+  snapshotId: string;
+  createdAt: string;
+  kind: SnapshotReason;
+  deviceName: string;
+  /** Whether this device made it. */
+  mine: boolean;
+  tabCount: number;
+  windowCount: number;
+  /** Windows "match exactly" would offer to close if this were restored. */
+  surplusWindows: number;
+}
+
+export interface HistoryView {
+  /** One entry per restore label that resolves (SPEC.md "Restore menu"). */
+  points: (HistoryEntry & { label: string })[];
+  /** This device's most recent undo point (taken before an apply or restore). */
+  undo?: HistoryEntry;
+}
+
 export interface StatusView {
   status: SyncStatus;
   settings: Settings;
@@ -65,6 +105,7 @@ export interface StatusView {
   /** Device that made the newest snapshot on the server, if known. */
   latestDevice?: string;
   behind?: BehindInfo;
+  conflict?: ConflictInfo;
 }
 
 export class SetupError extends Error {
@@ -135,6 +176,8 @@ export class SyncEngine {
   private keyCache?: { secret: string; keys: ProfileKeys };
   /** True while applying a snapshot: our own tab operations must not count as changes. */
   private applying = false;
+  /** Decrypted snapshots fetched for history/restore, by ID (small; snapshots are immutable). */
+  private snapshotCache = new Map<string, Snapshot>();
 
   constructor(private readonly deps: EngineDeps) {}
 
@@ -230,7 +273,10 @@ export class SyncEngine {
       this.deps.repo.state(),
     ]);
     const status = computeStatus(!!creds, state, this.deps.now());
-    const detail = status === 'behind' ? state.remote?.device.name : state.lastError?.message;
+    const detail =
+      status === 'behind' || status === 'conflict'
+        ? state.remote?.device.name
+        : state.lastError?.message;
     await this.deps.browser.setBadge(badgeFor(status, detail));
   }
 
@@ -384,16 +430,40 @@ export class SyncEngine {
       }
       state = { ...state, remote, remoteFingerprint: await fingerprint(remote.windows) };
       if (isBehind(state)) {
-        const windows = await this.capture();
-        state = this.adoptIfIdentical(state, await fingerprint(windows));
-        if (isBehind(state)) this.deps.log(`${remote.device.name} has newer tabs`);
+        const fp = await fingerprint(await this.capture());
+        state = this.adoptIfIdentical({ ...state, localFingerprint: fp }, fp);
+        if (isConflict(state))
+          this.deps.log(`${remote.device.name} has newer tabs, and tabs changed here too`);
+        else if (isBehind(state)) this.deps.log(`${remote.device.name} has newer tabs`);
       }
     }
     await repo.saveState(state);
     await this.updateBadge();
   }
 
-  private async flushNow({ force }: { force: boolean }): Promise<void> {
+  /**
+   * The latest snapshot on the server if it's newer than this device's base (another device
+   * pushed meanwhile), else undefined. Cheap thanks to If-None-Match.
+   */
+  private async fetchNewer(
+    session: Session,
+    state: SyncState,
+    ownId: string,
+  ): Promise<Snapshot | undefined> {
+    const result = await session.api.latest(state.remote?.snapshotId);
+    if (result.status !== 'ok') return undefined;
+    const { id } = result.snapshot;
+    if (id === state.baseSnapshotId || id === ownId) return undefined;
+    return this.decrypt(session, result.snapshot);
+  }
+
+  private async flushNow({
+    force,
+    reason = 'auto',
+  }: {
+    force: boolean;
+    reason?: SnapshotReason;
+  }): Promise<void> {
     const session = await this.session();
     if (!session) return;
     const { repo, now } = this.deps;
@@ -410,7 +480,10 @@ export class SyncEngine {
     }
 
     const windows = await this.capture();
-    state = { ...state, settleUntil: undefined, dirtySince: undefined, lastChangeAt: undefined };
+    // A forced flush inside a settle window (e.g. right after applying) keeps the window.
+    const settleUntil =
+      state.settleUntil !== undefined && state.settleUntil > t ? state.settleUntil : undefined;
+    state = { ...state, settleUntil, dirtySince: undefined, lastChangeAt: undefined };
     if (windows.length === 0) {
       // No windows (e.g. last window closed on macOS, or the browser quitting): never publish
       // an empty layout (PLAN.md D10). Keep any pending snapshot for later.
@@ -419,11 +492,11 @@ export class SyncEngine {
     }
     const fp = await fingerprint(windows);
 
-    state = this.adoptIfIdentical(state, fp);
+    state = this.adoptIfIdentical({ ...state, localFingerprint: fp }, fp);
     if (isBehind(state)) {
-      // Never overwrite a newer snapshot from another device: the user decides via Apply
-      // (milestone 5 turns local edits made meanwhile into a conflict choice).
-      await repo.saveState(state);
+      // Never overwrite a newer snapshot from another device: with local edits this is a
+      // conflict, which the user resolves in the popup (resolving builds a fresh snapshot).
+      await repo.saveState({ ...state, pending: undefined });
       return this.updateBadge();
     }
 
@@ -434,13 +507,29 @@ export class SyncEngine {
         await repo.saveState({ ...state, pending: undefined });
         return this.updateBadge();
       }
-      snapshot = this.buildSnapshot(windows, session.settings, state, 'auto');
+      snapshot = this.buildSnapshot(windows, session.settings, state, reason);
     }
     state = { ...state, pending: snapshot };
     await repo.saveState(state);
     await this.updateBadge();
 
     try {
+      // Re-check right before pushing, so a device that edits before its next pull can't blindly
+      // overwrite a snapshot another device just pushed (PLAN.md D14).
+      const newer = await this.fetchNewer(session, state, snapshot.snapshotId);
+      if (newer) {
+        state = {
+          ...state,
+          remote: newer,
+          remoteFingerprint: await fingerprint(newer.windows),
+          lastPullAt: now(),
+        };
+        state = this.adoptIfIdentical(state, fp);
+        await repo.saveState({ ...state, ...SyncEngine.CLEAR_ERRORS, pending: undefined });
+        if (isBehind(state))
+          this.deps.log(`${newer.device.name} pushed newer tabs first; not overwriting them`);
+        return this.updateBadge();
+      }
       const size = await this.upload(session, snapshot);
       await repo.saveState({
         ...state,
@@ -474,16 +563,22 @@ export class SyncEngine {
       if (!session) throw new ApplyError('Sync is not set up');
       const state = await this.deps.repo.state();
       if (!state.remote) throw new ApplyError('There is no snapshot to apply');
-      await this.applySnapshot(session, state.remote, mode, closeSurplusWindows);
+      await this.applySnapshot(session, state.remote, mode, closeSurplusWindows, 'adopt');
       await this.deps.repo.updateSettings({ applyMode: mode });
     });
   }
 
+  /**
+   * Saves an undo point, reconciles the tabs to `target`, then either adopts `target` as the base
+   * (applying the server's latest) or pushes the result as a new `manual` snapshot (restoring
+   * from history, merging a conflict) so other devices see it.
+   */
   private async applySnapshot(
     session: Session,
     target: Snapshot,
     mode: ApplyMode,
     closeSurplusWindows: boolean,
+    after: 'adopt' | 'push',
   ) {
     const { repo, now, log } = this.deps;
     let state = await repo.state();
@@ -525,18 +620,147 @@ export class SyncEngine {
     // fingerprinted once more, so a real edit made meanwhile is still pushed.
     const fp = await fingerprint(await this.capture());
     state = await repo.state();
-    await repo.saveState({
-      ...state,
-      baseSnapshotId: target.snapshotId,
-      lastFingerprint: fp,
+    const common = {
       pending: undefined,
       dirtySince: undefined,
       lastChangeAt: undefined,
+      localFingerprint: fp,
       settleUntil: now() + ECHO_GRACE_MS,
-    });
+    };
+    if (after === 'adopt') {
+      await repo.saveState({
+        ...state,
+        ...common,
+        baseSnapshotId: target.snapshotId,
+        lastFingerprint: fp,
+      });
+      log(`Applied ${target.device.name}'s snapshot ${target.snapshotId.slice(0, 8)} (${mode})`);
+    } else {
+      // Build on the server's latest (we've seen it), and push only if the result differs from it.
+      await repo.saveState({
+        ...state,
+        ...common,
+        baseSnapshotId: state.remote?.snapshotId ?? state.baseSnapshotId,
+        lastFingerprint: state.remoteFingerprint ?? state.lastFingerprint,
+      });
+      log(
+        `Restored snapshot ${target.snapshotId.slice(0, 8)} from ${target.device.name} (${mode})`,
+      );
+      await this.flushNow({ force: true, reason: 'manual' });
+    }
     this.schedule(now() + ECHO_GRACE_MS);
-    log(`Applied ${target.device.name}'s snapshot ${target.snapshotId.slice(0, 8)} (${mode})`);
     await this.updateBadge();
+  }
+
+  /** Resolves a conflict (SPEC.md decision 5). */
+  resolveConflict(choice: ConflictChoice): Promise<void> {
+    return this.run(async () => {
+      const session = await this.session();
+      if (!session) throw new ApplyError('Sync is not set up');
+      const state = await this.deps.repo.state();
+      if (!state.remote) throw new ApplyError('There is nothing to resolve');
+      if (choice === 'take-theirs') {
+        await this.applySnapshot(session, state.remote, 'match-exactly', false, 'adopt');
+      } else if (choice === 'merge') {
+        await this.applySnapshot(session, state.remote, 'add-missing', false, 'push');
+      } else {
+        // Keep mine: push this layout on top of theirs; their snapshot stays in history.
+        await this.deps.repo.saveState({
+          ...state,
+          pending: undefined,
+          baseSnapshotId: state.remote.snapshotId,
+          lastFingerprint: state.remoteFingerprint,
+        });
+        this.deps.log(`Keeping this device's tabs over ${state.remote.device.name}'s`);
+        await this.flushNow({ force: true, reason: 'manual' });
+      }
+    });
+  }
+
+  private async fetchSnapshot(session: Session, id: string): Promise<Snapshot> {
+    const cached = this.snapshotCache.get(id);
+    if (cached) return cached;
+    const snapshot = await this.decrypt(session, await session.api.get(id));
+    if (this.snapshotCache.size >= 32)
+      this.snapshotCache.delete(this.snapshotCache.keys().next().value!);
+    this.snapshotCache.set(id, snapshot);
+    return snapshot;
+  }
+
+  /** Restores a snapshot from history; the result is pushed so other devices see it (D2). */
+  restore(
+    snapshotId: string,
+    mode: ApplyMode,
+    { closeSurplusWindows = false } = {},
+  ): Promise<void> {
+    return this.run(async () => {
+      const session = await this.session();
+      if (!session) throw new ApplyError('Sync is not set up');
+      let target: Snapshot;
+      try {
+        target = await this.fetchSnapshot(session, snapshotId);
+      } catch (err) {
+        throw new ApplyError(`Couldn’t load that snapshot: ${classify(err).message}`);
+      }
+      await this.applySnapshot(session, target, mode, closeSurplusWindows, 'push');
+      await this.deps.repo.updateSettings({ applyMode: mode });
+    });
+  }
+
+  /**
+   * The restore menu: for each label (1 minute … 1 year) the newest snapshot at least that old,
+   * plus this device's latest undo point. Device names are encrypted, so the chosen snapshots
+   * are fetched and decrypted (PLAN.md D5).
+   */
+  async history(): Promise<HistoryView> {
+    const session = await this.session();
+    if (!session) throw new Error('Sync is not set up');
+    const now = this.deps.now();
+    const metas = await session.api.list();
+    const entries = metas.map((m) => ({
+      id: m.id,
+      createdAt: Date.parse(m.createdAt),
+      kind: m.kind,
+    }));
+    const windows = await this.deps.browser.getWindows();
+
+    const describe = async (id: string): Promise<HistoryEntry | undefined> => {
+      try {
+        const s = await this.fetchSnapshot(session, id);
+        return {
+          snapshotId: s.snapshotId,
+          createdAt: s.createdAt,
+          kind: s.reason,
+          deviceName: s.device.name,
+          mine: s.device.id === session.settings.deviceId,
+          tabCount: s.windows.reduce((n, w) => n + w.tabs.length, 0),
+          windowCount: s.windows.length,
+          surplusWindows: planApply(windows, s.windows).surplusWindowIds.length,
+        };
+      } catch (err) {
+        this.deps.log(`Couldn’t read snapshot ${id.slice(0, 8)}: ${classify(err).message}`);
+        return undefined;
+      }
+    };
+
+    const points: HistoryView['points'] = [];
+    for (const p of resolveRestorePoints(entries, now)) {
+      const entry = await describe(p.entry.id);
+      if (entry) points.push({ ...entry, label: p.label.text });
+    }
+
+    // Newest pre-restore snapshot made by this device (they're kept 30 days).
+    let undo: HistoryEntry | undefined;
+    for (const e of [...entries]
+      .filter((x) => x.kind === 'pre-restore')
+      .sort((a, b) => b.createdAt - a.createdAt)) {
+      const entry = await describe(e.id);
+      if (entry?.mine) {
+        undo = entry;
+        break;
+      }
+    }
+    return { points, undo };
   }
 
   /** Generates a secret, registers it, and pushes this device's tabs as the first snapshot. */
@@ -650,7 +874,21 @@ export class SyncEngine {
       lastError: state.lastError,
       latestDevice: state.remote?.device.name,
     };
-    if (creds && state.remote && isBehind(state)) {
+    if (creds && state.remote && isConflict(state)) {
+      const current = await this.capture();
+      const diff = diffLayouts(state.remote.windows, current);
+      const summarize = (tabs: { title: string; url: string }[]) =>
+        tabs.slice(0, 5).map((t) => ({ title: t.title || t.url, url: t.url }));
+      view.conflict = {
+        deviceName: state.remote.device.name,
+        createdAt: state.remote.createdAt,
+        onlyHere: summarize(diff.opened),
+        onlyHereCount: diff.opened.length,
+        onlyThere: summarize(diff.closed),
+        onlyThereCount: diff.closed.length,
+        groupsChanged: diff.groupsChanged,
+      };
+    } else if (creds && state.remote && isBehind(state)) {
       const [windows, groups] = await Promise.all([
         this.deps.browser.getWindows(),
         this.deps.browser.getGroups(),
