@@ -8,28 +8,10 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Fixed
+## [1.0.0] - 2026-10-23
 
-- **extension 0.6.1:** applying touches only tabs and groups that changed; collapsed groups no
-  longer flicker open.
-
-### Changed
-
-- Node 22.12+ is required (Vitest and Vite need it), and `engines` now says so; npm warns at
-  install on older versions.
-- **extension 0.6.0:** defaults to the deployed Railway server.
-- `DEPLOY.md` describes the default server URL instead of the pending code change.
-- **shared 0.3.0 / extension 0.5.1:** snapshots no longer store `data:` favicons; clearer
-  size-limit error message.
-- **extension 0.5.0:** icon; an unreachable server shows Pending then Error after 5 minutes;
-  persistent failures retry every 5 minutes; clearer error messages.
-- Root README links the Railway deployment guide (`DEPLOY.md`).
-
-### Fixed
-
-- **extension 0.3.1:** Apply failed with "Invalid value for state" when opening a window for a
-  maximized snapshot window; one unopenable URL no longer aborts an apply.
-- **server 0.2.1:** first start on a fresh checkout failed creating the PGlite data directory.
+First stable release: the MVP from `SPEC.md`, deployed on Railway. **shared**, **server**
+and **extension** are all 1.0.0.
 
 ### Added
 
@@ -46,7 +28,6 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **shared 0.2.0:** snapshot types and validation, URL normalization and capture rules,
   fingerprinting, tab/window matching, layout diffs, retention pruning and restore labels,
   and crypto helpers (secret format, HKDF, AES-GCM with AAD, gzip).
-
 - Monorepo skeleton with npm workspaces, shared TypeScript, ESLint and Prettier config, and
   root `dev` / `build` / `test` / `typecheck` / `db:*` scripts.
 - **shared 0.1.0:** package skeleton.
@@ -54,3 +35,23 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   forward-and-back migrator (`up` / `down` / `status`).
 - **extension 0.1.0:** Manifest V3 build with Vite and Preact; placeholder service worker,
   popup and options page.
+
+### Changed
+
+- Node 22.12+ is required (Vitest and Vite need it), and `engines` now says so; npm warns at
+  install on older versions.
+- **extension 0.6.0:** defaults to the deployed Railway server.
+- `DEPLOY.md` describes the default server URL instead of the pending code change.
+- **shared 0.3.0 / extension 0.5.1:** snapshots no longer store `data:` favicons; clearer
+  size-limit error message.
+- **extension 0.5.0:** icon; an unreachable server shows Pending then Error after 5 minutes;
+  persistent failures retry every 5 minutes; clearer error messages.
+- Root README links the Railway deployment guide (`DEPLOY.md`).
+
+### Fixed
+
+- **extension 0.6.1:** applying touches only tabs and groups that changed; collapsed groups no
+  longer flicker open.
+- **extension 0.3.1:** Apply failed with "Invalid value for state" when opening a window for a
+  maximized snapshot window; one unopenable URL no longer aborts an apply.
+- **server 0.2.1:** first start on a fresh checkout failed creating the PGlite data directory.
