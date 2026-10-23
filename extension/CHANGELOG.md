@@ -7,6 +7,15 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-23
+
+### Changed
+
+- Snapshots no longer include inline `data:` favicons (via shared 0.3.0), removing the only
+  realistic way to exceed the server's size limit.
+- The size-limit error now reads "The snapshot is too large to sync (over the server's size
+  limit)", since the 2 MB cap applies to the whole request, not the snapshot alone.
+
 ## [0.5.0] - 2026-10-23
 
 ### Added

@@ -57,7 +57,7 @@ export interface SnapTab {
   /** References `SnapGroup.key` in the same window. */
   groupKey?: string;
   active: boolean;
-  /** Fallback only; large data: URLs are dropped at capture. */
+  /** Fallback only; data: URLs are dropped at capture. */
   favIconUrl?: string;
   /** v2: reference to separately stored preview data. */
   previewRef?: string;

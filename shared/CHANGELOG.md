@@ -7,6 +7,16 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-23
+
+### Changed
+
+- `sanitizeWindow` drops all `data:` favicon URLs, not only those over 2 KB (PLAN.md D16).
+
+### Removed
+
+- `MAX_DATA_FAVICON_LENGTH`.
+
 ## [0.2.0] - 2026-10-22
 
 ### Added

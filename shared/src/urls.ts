@@ -32,9 +32,6 @@ const TRACKING_PARAMS = new Set([
   'mc_eid',
 ]);
 
-/** Max length of a `data:` favicon URL kept in a snapshot. */
-export const MAX_DATA_FAVICON_LENGTH = 2048;
-
 function scheme(url: string): string {
   const match = /^([a-z][a-z0-9+.-]*:)/i.exec(url);
   return match ? match[1]!.toLowerCase() : '';
@@ -85,14 +82,15 @@ function placeholderTab(): SnapTab {
  * - New Tab pages are kept as a single placeholder only if nothing else remains;
  * - a window with nothing left (e.g. just settings) yields `null`;
  * - groups with no remaining tabs are dropped;
- * - `data:` favicons over MAX_DATA_FAVICON_LENGTH are dropped.
+ * - `data:` favicons are dropped: inline image data barely compresses and could push a large
+ *   profile over the server's size limit (PLAN.md D16); favicons are a fallback only.
  */
 export function sanitizeWindow(window: SnapWindow): SnapWindow | null {
   const hasNewTab = window.tabs.some((t) => isNewTabUrl(t.url));
   let tabs = window.tabs
     .filter((t) => !isNewTabUrl(t.url) && !isExcludedUrl(t.url))
     .map((t) => {
-      if (t.favIconUrl?.startsWith('data:') && t.favIconUrl.length > MAX_DATA_FAVICON_LENGTH) {
+      if (t.favIconUrl?.startsWith('data:')) {
         const { favIconUrl: _dropped, ...rest } = t;
         return rest;
       }

@@ -116,19 +116,17 @@ describe('sanitizeWindow', () => {
     expect(sanitizeWindow(win([tab('https://a/'), tab('https://a/')]))!.tabs).toHaveLength(2);
   });
 
-  it('drops large data: favicons but keeps small ones and http favicons', () => {
-    const big = 'data:image/png;base64,' + 'A'.repeat(3000);
-    const small = 'data:image/png;base64,AAAA';
+  it('drops data: favicons of any size but keeps URL favicons', () => {
     const result = sanitizeWindow(
       win([
-        tab('https://a/', { favIconUrl: big }),
-        tab('https://b/', { favIconUrl: small }),
-        tab('https://c/', { favIconUrl: 'https://c/' + 'x'.repeat(3000) }),
+        tab('https://a/', { favIconUrl: 'data:image/png;base64,' + 'A'.repeat(3000) }),
+        tab('https://b/', { favIconUrl: 'data:image/png;base64,AAAA' }),
+        tab('https://c/', { favIconUrl: 'https://c/favicon.ico' }),
       ]),
     )!;
     expect(result.tabs[0]).not.toHaveProperty('favIconUrl');
-    expect(result.tabs[1]!.favIconUrl).toBe(small);
-    expect(result.tabs[2]!.favIconUrl).toBeDefined();
+    expect(result.tabs[1]).not.toHaveProperty('favIconUrl');
+    expect(result.tabs[2]!.favIconUrl).toBe('https://c/favicon.ico');
   });
 
   it('keeps window metadata', () => {

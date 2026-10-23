@@ -10,6 +10,8 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **shared 0.3.0 / extension 0.5.1:** snapshots no longer store `data:` favicons; clearer
+  size-limit error message.
 - **extension 0.5.0:** icon; an unreachable server shows Pending then Error after 5 minutes;
   persistent failures retry every 5 minutes; clearer error messages.
 - Root README links the Railway deployment guide (`DEPLOY.md`).

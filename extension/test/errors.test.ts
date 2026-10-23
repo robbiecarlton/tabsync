@@ -20,7 +20,12 @@ describe('describeFailure', () => {
     ],
     [new ApiError(429, 'rate_limited', 'Too many requests'), 'network', true, /busy/],
     [new ApiError(503, 'http_error', 'x'), 'network', true, /HTTP 503/],
-    [new ApiError(413, 'payload_too_large', 'x'), 'server', false, /over the server’s 2 MB limit/],
+    [
+      new ApiError(413, 'payload_too_large', 'x'),
+      'server',
+      false,
+      /too large to sync \(over the server’s size limit\)/,
+    ],
     [new ApiError(422, 'clock_skew', 'x'), 'server', false, /clock is more than 10 minutes ahead/],
     [
       new ApiError(400, 'invalid_request', 'id must be a UUID'),

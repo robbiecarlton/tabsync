@@ -49,7 +49,8 @@ export function describeFailure(err: unknown): Failure {
     if (err.code === 'payload_too_large') {
       return {
         kind: 'server',
-        message: 'Too many tabs to sync: the encrypted snapshot is over the server’s 2 MB limit.',
+        message:
+          'The snapshot is too large to sync (over the server’s size limit). Closing some tabs will fix it.',
         transient: false,
       };
     }
