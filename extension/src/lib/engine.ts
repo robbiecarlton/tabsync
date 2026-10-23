@@ -55,6 +55,20 @@ export interface EngineDeps {
   log: Log;
 }
 
+/** How many tabs per list the Behind card's diff shows; the snapshot browser has the rest. */
+const BEHIND_TAB_LIMIT = 25;
+
+function summarize(
+  tabs: { title: string; url: string; favIconUrl?: string }[],
+  limit: number,
+): TabSummary[] {
+  return tabs.slice(0, limit).map((t) => ({
+    title: t.title || t.url,
+    url: t.url,
+    ...(t.favIconUrl ? { favIconUrl: t.favIconUrl } : {}),
+  }));
+}
+
 export interface BehindInfo {
   snapshotId: string;
   deviceName: string;
@@ -64,6 +78,10 @@ export interface BehindInfo {
   opened: number;
   closed: number;
   groupsChanged: number;
+  /** Tabs in theirs but not open here (first few): what applying opens. */
+  openedTabs: TabSummary[];
+  /** Tabs open here but not in theirs (first few): what "match exactly" closes. */
+  closedTabs: TabSummary[];
   /** Windows "match exactly" would offer to close. */
   surplusWindows: number;
 }
@@ -907,19 +925,13 @@ export class SyncEngine {
     if (creds && state.remote && isConflict(state)) {
       const current = await this.capture();
       const diff = diffLayouts(await this.visible(state.remote.windows), current);
-      const summarize = (tabs: { title: string; url: string; favIconUrl?: string }[]) =>
-        tabs.slice(0, 5).map((t) => ({
-          title: t.title || t.url,
-          url: t.url,
-          ...(t.favIconUrl ? { favIconUrl: t.favIconUrl } : {}),
-        }));
       view.conflict = {
         snapshotId: state.remote.snapshotId,
         deviceName: state.remote.device.name,
         createdAt: state.remote.createdAt,
-        onlyHere: summarize(diff.opened),
+        onlyHere: summarize(diff.opened, 5),
         onlyHereCount: diff.opened.length,
-        onlyThere: summarize(diff.closed),
+        onlyThere: summarize(diff.closed, 5),
         onlyThereCount: diff.closed.length,
         groupsChanged: diff.groupsChanged,
       };
@@ -939,6 +951,8 @@ export class SyncEngine {
         opened: diff.opened.length,
         closed: diff.closed.length,
         groupsChanged: diff.groupsChanged,
+        openedTabs: summarize(diff.opened, BEHIND_TAB_LIMIT),
+        closedTabs: summarize(diff.closed, BEHIND_TAB_LIMIT),
         surplusWindows: planApply(windows, theirs, exclude).surplusWindowIds.length,
       };
     }

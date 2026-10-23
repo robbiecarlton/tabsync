@@ -7,6 +7,12 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- The popup's Behind card has a collapsible "Show changes" list of the tabs applying will open,
+  and the tabs only here (marked "Will close" under "Make it match exactly", otherwise kept).
+  Up to 25 per list; "See what changed in detail" still opens the full comparison.
+
 ## [1.4.0] - 2026-10-23
 
 ### Added

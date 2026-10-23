@@ -61,6 +61,22 @@ describe('behind detection', () => {
     expect(desk.browser.badge?.title).toBe('Tab Sync: Laptop has newer tabs');
   });
 
+  it('lists the tabs applying would open, and those only here', async () => {
+    const behind = (await desk.engine.status()).behind!;
+    expect(behind.openedTabs.map((t) => t.url)).toEqual(['https://b.example/']);
+    expect(behind.closedTabs.map((t) => t.url)).toEqual(['https://desk-only.example/']);
+  });
+
+  it('caps the tab lists but keeps the full counts', async () => {
+    for (let i = 0; i < 30; i++) laptop.browser.openTab(0, `https://many${i}.example/`);
+    await laptop.engine.layoutChanged();
+    await settle(laptop);
+    await desk.engine.pull();
+    const behind = (await desk.engine.status()).behind!;
+    expect(behind.opened).toBe(31);
+    expect(behind.openedTabs).toHaveLength(25);
+  });
+
   it('notices a later push from the other device on pull', async () => {
     await desk.engine.applyRemote('add-missing');
     await settle(desk);

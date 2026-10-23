@@ -74,10 +74,37 @@ function BehindCard({
         <strong>{behind.deviceName}</strong> has newer tabs ({behind.summary}).
       </p>
       <p class="muted small">Snapshot from {timeAgo(Date.parse(behind.createdAt), Date.now())}.</p>
-      <button class="link-button" onClick={() => openSnapshots(`now/vs/${behind.snapshotId}`)}>
-        See what changed →
-      </button>
       <ModeChoice mode={mode} onChange={setMode} />
+      {behind.opened + behind.closed + behind.groupsChanged > 0 && (
+        <details class="behind-diff">
+          <summary>Show changes</summary>
+          <div class="stack">
+            <div>
+              <p class="small">
+                <strong>Will open ({behind.opened})</strong>
+              </p>
+              <TabList tabs={behind.openedTabs} total={behind.opened} />
+            </div>
+            <div>
+              <p class="small">
+                <strong>
+                  {mode === 'match-exactly' ? 'Will close' : 'Only here, kept'} ({behind.closed})
+                </strong>
+              </p>
+              <TabList tabs={behind.closedTabs} total={behind.closed} />
+            </div>
+            {behind.groupsChanged > 0 && (
+              <p class="muted small">
+                {behind.groupsChanged}{' '}
+                {behind.groupsChanged === 1 ? 'group changes' : 'groups change'}
+              </p>
+            )}
+          </div>
+        </details>
+      )}
+      <button class="link-button" onClick={() => openSnapshots(`now/vs/${behind.snapshotId}`)}>
+        See what changed in detail →
+      </button>
       {mode === 'match-exactly' && surplus > 0 && (
         <label class="choice">
           <input

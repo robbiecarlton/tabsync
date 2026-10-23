@@ -8,6 +8,10 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **extension:** collapsible list of the specific tab changes on the popup's Behind card.
+
 ## [2.0.0] - 2026-10-23
 
 The v2 roadmap from `SPEC.md`, except link preview images (deferred). Project milestone:
