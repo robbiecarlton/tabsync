@@ -8,6 +8,12 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-23
+
+The v2 roadmap from `SPEC.md`, except link preview images (deferred). Project milestone:
+package versions follow semver independently (no breaking changes), and are now **shared
+1.2.0**, **server 1.0.0** and **extension 1.4.0**.
+
 ### Added
 
 - **shared 1.2.0 / extension 1.4.0:** user exclude list (v2).

@@ -37,6 +37,14 @@ Companion to `SPEC.md`. Records the build order and decisions that refine or dev
 - Extension: Vite MV3 build, Preact for popup/options
 - Each package has its own semver version, `CHANGELOG.md` and `README.md`; the root has a unified `CHANGELOG.md` and `README.md`
 
+## Status
+
+- **1.0.0** (tag `v1.0.0`): MVP, milestones 0–7, deployed on Railway.
+- **2.0.0** (tag `v2.0.0`): SPEC.md v2: favicons, snapshot browser, diffs, user exclude list.
+- **Deferred:** link preview images (v2). It needs the `<all_urls>` permission; revisit after
+  using the current version for a while. v3 (screenshots, delete-profile, key rotation,
+  bookmark export) not started.
+
 ## Milestones
 
 Finish and test each before starting the next.
