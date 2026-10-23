@@ -25,8 +25,13 @@ export interface BrowserApi {
   }): Promise<number>;
   moveTab(tabId: number, windowId: number, index: number): Promise<void>;
   updateTab(tabId: number, props: { pinned?: boolean; active?: boolean }): Promise<void>;
-  /** Groups the tabs (in this order) into a new group in `windowId`; returns the group ID. */
-  groupTabs(tabIds: number[], windowId: number): Promise<number>;
+  /**
+   * Groups the tabs (in this order) into a new group in `windowId`, or adds them to the end of
+   * group `groupId`. Returns the group ID.
+   */
+  groupTabs(tabIds: number[], windowId: number, groupId?: number): Promise<number>;
+  /** Moves a whole group so its first tab lands at `index`. */
+  moveGroup(groupId: number, index: number): Promise<void>;
   ungroupTabs(tabIds: number[]): Promise<void>;
   updateGroup(
     groupId: number,
@@ -89,8 +94,15 @@ export const chromeBrowser: BrowserApi = {
   async updateTab(tabId, props) {
     await chrome.tabs.update(tabId, props);
   },
-  groupTabs: (tabIds, windowId) =>
-    chrome.tabs.group({ tabIds: tabIds as [number, ...number[]], createProperties: { windowId } }),
+  groupTabs: (tabIds, windowId, groupId) =>
+    chrome.tabs.group(
+      groupId !== undefined
+        ? { tabIds: tabIds as [number, ...number[]], groupId }
+        : { tabIds: tabIds as [number, ...number[]], createProperties: { windowId } },
+    ),
+  async moveGroup(groupId, index) {
+    await chrome.tabGroups.move(groupId, { index });
+  },
   async ungroupTabs(tabIds) {
     if (tabIds.length) await chrome.tabs.ungroup(tabIds as [number, ...number[]]);
   },

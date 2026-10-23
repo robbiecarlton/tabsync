@@ -7,6 +7,14 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-23
+
+### Fixed
+
+- Applying no longer dissolves and rebuilds every group in a window that changed (which made
+  collapsed groups flicker open) or moves every tab. Existing groups are reused and only tabs
+  and groups that are out of place are touched.
+
 ## [0.6.0] - 2026-10-23
 
 ### Changed

@@ -8,6 +8,11 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **extension 0.6.1:** applying touches only tabs and groups that changed; collapsed groups no
+  longer flicker open.
+
 ### Changed
 
 - Node 22.12+ is required (Vitest and Vite need it), and `engines` now says so; npm warns at

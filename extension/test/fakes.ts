@@ -267,6 +267,7 @@ export class FakeBrowser implements BrowserApi {
     if (prev && next && prev.groupId !== -1 && prev.groupId === next.groupId)
       tab.groupId = prev.groupId;
     this.normalize();
+    this.ops.push(`move ${tabId}`);
   }
 
   async updateTab(tabId: number, props: { pinned?: boolean; active?: boolean }) {
@@ -282,17 +283,64 @@ export class FakeBrowser implements BrowserApi {
     this.normalize();
   }
 
-  async groupTabs(tabIds: number[], windowId: number) {
+  async groupTabs(tabIds: number[], windowId: number, groupId?: number) {
+    const w = this.window(windowId);
+    if (groupId !== undefined) {
+      // Adding to an existing group: the tabs join at the group's end.
+      const members = w.tabs.filter((t) => t.groupId === groupId);
+      if (members.length === 0) throw new Error(`No group ${groupId}`);
+      const added = tabIds.map((id) => this.tab(id));
+      const rest = w.tabs.filter((t) => !added.includes(t));
+      const after = rest.indexOf(members.at(-1)!) + 1;
+      for (const t of added) {
+        t.groupId = groupId;
+        t.pinned = false;
+      }
+      w.tabs = [...rest.slice(0, after), ...added, ...rest.slice(after)];
+      this.normalize();
+      this.ops.push(`groupAdd ${groupId} ${tabIds.join(',')}`);
+      return groupId;
+    }
     const g: SimGroup = { id: this.id(), windowId, title: '', color: 'grey', collapsed: false };
     this.groups.push(g);
-    this.placeGroup(this.window(windowId), tabIds, g.id);
+    this.placeGroup(w, tabIds, g.id);
     this.ops.push(`group ${tabIds.join(',')}`);
     return g.id;
   }
 
   async ungroupTabs(tabIds: number[]) {
-    for (const id of tabIds) this.tab(id).groupId = -1;
+    for (const id of tabIds) {
+      const w = this.windowOf(id);
+      const tab = this.tab(id);
+      const members = w.tabs.filter((t) => t.groupId === tab.groupId);
+      tab.groupId = -1;
+      // A tab ungrouped from the middle of a group moves to just after it.
+      const last = members.at(-1)!;
+      if (last !== tab && members[0] !== tab) {
+        w.tabs = w.tabs.filter((t) => t !== tab);
+        w.tabs.splice(w.tabs.indexOf(last) + 1, 0, tab);
+      }
+    }
     this.normalize();
+    if (tabIds.length) this.ops.push(`ungroup ${tabIds.join(',')}`);
+  }
+
+  async moveGroup(groupId: number, index: number) {
+    const g = this.groups.find((x) => x.id === groupId);
+    if (!g) throw new Error(`No group ${groupId}`);
+    const w = this.window(g.windowId);
+    const members = w.tabs.filter((t) => t.groupId === groupId);
+    const rest = w.tabs.filter((t) => t.groupId !== groupId);
+    const before = rest[index - 1];
+    const after = rest[index];
+    if (before && after && before.groupId !== -1 && before.groupId === after.groupId) {
+      throw new Error('Cannot move the group to an index that is in the middle of another group');
+    }
+    if (rest.slice(index).some((t) => t.pinned))
+      throw new Error('Cannot move a group among pinned tabs');
+    w.tabs = [...rest.slice(0, index), ...members, ...rest.slice(index)];
+    this.normalize();
+    this.ops.push(`moveGroup ${groupId}`);
   }
 
   async updateGroup(
@@ -302,6 +350,7 @@ export class FakeBrowser implements BrowserApi {
     const g = this.groups.find((x) => x.id === groupId);
     if (!g) throw new Error(`No group ${groupId}`);
     Object.assign(g, props);
+    this.ops.push(`updateGroup ${groupId} ${Object.keys(props).join(',')}`);
   }
 
   async discardTab(tabId: number) {

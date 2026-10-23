@@ -303,6 +303,152 @@ describe('applyLayout', () => {
     expect(b.windows[1]!.tabs[0]!.active).toBe(true);
   });
 
+  describe('touches only what changed', () => {
+    /** [x] [Work: a, b (collapsed)] [y] */
+    function setup() {
+      const w = b.addWindow(['https://x/', 'https://a/', 'https://b/', 'https://y/']);
+      const g = b.addGroup([w.tabs[1]!.id, w.tabs[2]!.id], {
+        title: 'Work',
+        color: 'red',
+        collapsed: true,
+      });
+      b.ops = [];
+      return g;
+    }
+    const work = (extra: Partial<Parameters<typeof group>[1]> = {}) =>
+      group('w', { title: 'Work', color: 'red', collapsed: true, ...extra });
+    const kinds = () => b.ops.map((o) => o.split(' ')[0]);
+
+    it('leaves a collapsed group alone when a tab is added after it', async () => {
+      const g = setup();
+      const t = [
+        win(
+          [
+            tab('https://x/'),
+            tab('https://a/', { groupKey: 'w' }),
+            tab('https://b/', { groupKey: 'w' }),
+            tab('https://y/'),
+            tab('https://z/'),
+          ],
+          [work()],
+        ),
+      ];
+      await applyLayout(b, t, { mode: 'match-exactly' });
+      await expectMatches(t);
+      expect(kinds()).toEqual(['createTab', 'discard']);
+      expect(b.groups).toEqual([expect.objectContaining({ id: g.id, collapsed: true })]);
+    });
+
+    it('moves only the new tab when one is inserted before a group', async () => {
+      setup();
+      const t = [
+        win(
+          [
+            tab('https://x/'),
+            tab('https://n/'),
+            tab('https://a/', { groupKey: 'w' }),
+            tab('https://b/', { groupKey: 'w' }),
+            tab('https://y/'),
+          ],
+          [work()],
+        ),
+      ];
+      await applyLayout(b, t, { mode: 'match-exactly' });
+      await expectMatches(t);
+      expect(kinds()).toEqual(['createTab', 'move', 'discard']);
+    });
+
+    it('adds a tab to the existing group instead of rebuilding it', async () => {
+      const g = setup();
+      const t = [
+        win(
+          [
+            tab('https://x/'),
+            tab('https://a/', { groupKey: 'w' }),
+            tab('https://b/', { groupKey: 'w' }),
+            tab('https://c/', { groupKey: 'w' }),
+            tab('https://y/'),
+          ],
+          [work()],
+        ),
+      ];
+      await applyLayout(b, t, { mode: 'match-exactly' });
+      await expectMatches(t);
+      expect(kinds()).not.toContain('ungroup');
+      expect(kinds()).not.toContain('group');
+      expect(b.ops).toContain(`groupAdd ${g.id} ${b.windows[0]!.tabs[3]!.id}`);
+      expect(b.groups[0]!.id).toBe(g.id);
+    });
+
+    it('only updates the title when a group is renamed', async () => {
+      const g = setup();
+      const t = [
+        win(
+          [
+            tab('https://x/'),
+            tab('https://a/', { groupKey: 'w' }),
+            tab('https://b/', { groupKey: 'w' }),
+            tab('https://y/'),
+          ],
+          [work({ title: 'Play' })],
+        ),
+      ];
+      await applyLayout(b, t, { mode: 'match-exactly' });
+      expect(b.ops).toEqual([`updateGroup ${g.id} title`]);
+    });
+
+    it('moves whole groups to reorder them, keeping their identity', async () => {
+      const w = b.addWindow(['https://a1/', 'https://a2/', 'https://b1/', 'https://b2/']);
+      const ga = b.addGroup([w.tabs[0]!.id, w.tabs[1]!.id], { title: 'A', color: 'red' });
+      const gb = b.addGroup([w.tabs[2]!.id, w.tabs[3]!.id], {
+        title: 'B',
+        color: 'blue',
+        collapsed: true,
+      });
+      b.ops = [];
+      const t = [
+        win(
+          [
+            tab('https://b1/', { groupKey: 'b' }),
+            tab('https://b2/', { groupKey: 'b' }),
+            tab('https://a1/', { groupKey: 'a' }),
+            tab('https://a2/', { groupKey: 'a' }),
+          ],
+          [
+            group('b', { title: 'B', color: 'blue', collapsed: true }),
+            group('a', { title: 'A', color: 'red' }),
+          ],
+        ),
+      ];
+      await applyLayout(b, t, { mode: 'match-exactly' });
+      await expectMatches(t);
+      expect(kinds()).toEqual(['moveGroup']);
+      expect(b.groups.map((g) => g.id).sort()).toEqual([ga.id, gb.id].sort());
+    });
+
+    it('moves a tab between groups without disturbing either group', async () => {
+      const w = b.addWindow(['https://a1/', 'https://a2/', 'https://b1/']);
+      const ga = b.addGroup([w.tabs[0]!.id, w.tabs[1]!.id], { title: 'A' });
+      const gb = b.addGroup([w.tabs[2]!.id], { title: 'B' });
+      const a2 = w.tabs[1]!.id;
+      b.ops = [];
+      const t = [
+        win(
+          [
+            tab('https://a1/', { groupKey: 'a' }),
+            tab('https://b1/', { groupKey: 'b' }),
+            tab('https://a2/', { groupKey: 'b' }),
+          ],
+          [group('a', { title: 'A', color: 'grey' }), group('b', { title: 'B', color: 'grey' })],
+        ),
+      ];
+      await applyLayout(b, t, { mode: 'match-exactly' });
+      await expectMatches(t);
+      expect(b.groups.map((g) => g.id).sort()).toEqual([ga.id, gb.id].sort());
+      expect(b.ops.filter((o) => o.startsWith('ungroup'))).toEqual([`ungroup ${a2}`]);
+    });
+  });
+
   it('handles 200+ tabs, all unloaded except the active one', async () => {
     b.addWindow(['chrome://newtab/']);
     const many = Array.from({ length: 220 }, (_, i) =>
