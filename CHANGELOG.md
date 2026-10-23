@@ -10,6 +10,10 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **shared 0.2.0:** snapshot types and validation, URL normalization and capture rules,
+  fingerprinting, tab/window matching, layout diffs, retention pruning and restore labels,
+  and crypto helpers (secret format, HKDF, AES-GCM with AAD, gzip).
+
 - Monorepo skeleton with npm workspaces, shared TypeScript, ESLint and Prettier config, and
   root `dev` / `build` / `test` / `typecheck` / `db:*` scripts.
 - **shared 0.1.0:** package skeleton.

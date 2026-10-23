@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@tabsync/shared": "^0.1.0",
+    "@tabsync/shared": "*",
     "preact": "^11.0.1"
   },
   "devDependencies": {
