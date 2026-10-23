@@ -7,6 +7,14 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-23
+
+### Added
+
+- Favicons via the browser's `_favicon` cache, falling back to the snapshot's stored favicon
+  URL when the browser only has its generic icon (e.g. tabs synced from another machine).
+  Shown in the conflict card's tab lists for now; the snapshot browser will reuse them.
+
 ## [1.0.0] - 2026-10-23
 
 ### Changed

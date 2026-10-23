@@ -8,6 +8,10 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **extension 1.1.0:** favicons via the `_favicon` API with a stored-URL fallback (v2).
+
 ## [1.0.0] - 2026-10-23
 
 First stable release: the MVP from `SPEC.md`, deployed on Railway. **shared**, **server**

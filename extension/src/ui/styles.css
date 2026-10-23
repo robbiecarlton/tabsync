@@ -274,3 +274,21 @@ details > summary {
 .restore-options {
   margin-top: 8px;
 }
+
+.favicon {
+  display: inline-block;
+  flex: none;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+
+.tab-list li {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.tab-list li > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

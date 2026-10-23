@@ -66,6 +66,8 @@ export interface BehindInfo {
 export interface TabSummary {
   title: string;
   url: string;
+  /** Stored favicon URL (fallback for the browser's `_favicon` cache). */
+  favIconUrl?: string;
 }
 
 export interface ConflictInfo {
@@ -851,8 +853,12 @@ export class SyncEngine {
     if (creds && state.remote && isConflict(state)) {
       const current = await this.capture();
       const diff = diffLayouts(state.remote.windows, current);
-      const summarize = (tabs: { title: string; url: string }[]) =>
-        tabs.slice(0, 5).map((t) => ({ title: t.title || t.url, url: t.url }));
+      const summarize = (tabs: { title: string; url: string; favIconUrl?: string }[]) =>
+        tabs.slice(0, 5).map((t) => ({
+          title: t.title || t.url,
+          url: t.url,
+          ...(t.favIconUrl ? { favIconUrl: t.favIconUrl } : {}),
+        }));
       view.conflict = {
         deviceName: state.remote.device.name,
         createdAt: state.remote.createdAt,

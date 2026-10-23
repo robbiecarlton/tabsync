@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import type {
   BehindInfo,
+  TabSummary,
   ConflictChoice,
   ConflictInfo,
   HistoryEntry,
@@ -10,6 +11,7 @@ import type {
 } from '../lib/engine';
 import { send } from '../lib/messages';
 import type { ApplyMode } from '../lib/reconcile';
+import { Favicon } from '../ui/Favicon';
 import { formatWhen, STATUS_TEXT, timeAgo } from '../ui/format';
 import '../ui/styles.css';
 
@@ -99,12 +101,15 @@ function BehindCard({
   );
 }
 
-function TabList({ tabs, total }: { tabs: { title: string; url: string }[]; total: number }) {
+function TabList({ tabs, total }: { tabs: TabSummary[]; total: number }) {
   if (total === 0) return <p class="muted small">None</p>;
   return (
     <ul class="tab-list">
       {tabs.map((t) => (
-        <li title={t.url}>{t.title}</li>
+        <li key={t.url} title={t.url}>
+          <Favicon key={t.url} pageUrl={t.url} stored={t.favIconUrl} />
+          <span>{t.title}</span>
+        </li>
       ))}
       {total > tabs.length && <li class="muted">+{total - tabs.length} more</li>}
     </ul>

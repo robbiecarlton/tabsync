@@ -35,8 +35,8 @@ async function settle(h: Harness) {
   await h.clock.advance(Math.max(DEBOUNCE_MS, ECHO_GRACE_MS) + 1, h.engine);
 }
 
-async function edit(h: Harness, url: string) {
-  h.browser.openTab(0, url);
+async function edit(h: Harness, url: string, extra: { favIconUrl?: string } = {}) {
+  h.browser.openTab(0, url, extra);
   await h.engine.layoutChanged();
   await settle(h);
 }
@@ -62,7 +62,7 @@ describe('conflicts', () => {
   beforeEach(async () => {
     // Laptop pushes [a, b, laptop]; Desk, not having pulled yet, edits to [a, b, desk].
     await edit(laptop, 'https://laptop.example/');
-    await edit(desk, 'https://desk.example/');
+    await edit(desk, 'https://desk.example/', { favIconUrl: 'https://desk.example/favicon.ico' });
   });
 
   it('detects the conflict before pushing instead of overwriting the other device', async () => {
@@ -73,7 +73,7 @@ describe('conflicts', () => {
     expect(desk.browser.badge).toMatchObject({ text: '!', color: '#f9ab00' });
     expect(status.conflict).toMatchObject({
       deviceName: 'Laptop',
-      onlyHere: [{ url: 'https://desk.example/' }],
+      onlyHere: [{ url: 'https://desk.example/', favIconUrl: 'https://desk.example/favicon.ico' }],
       onlyHereCount: 1,
       onlyThere: [{ url: 'https://laptop.example/' }],
       onlyThereCount: 1,
