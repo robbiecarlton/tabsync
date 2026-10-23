@@ -4,6 +4,7 @@ import {
   type SnapGroup,
   type SnapTab,
   type SnapWindow,
+  type ExcludeRule,
 } from '@tabsync/shared';
 
 /** The subset of chrome.windows.Window (populated) that capture reads. */
@@ -95,13 +96,19 @@ function toSnapWindow(window: BrowserWindow, groupsById: Map<number, BrowserGrou
 
 /**
  * Converts the browser's windows into snapshot windows: normal, non-private windows only, tabs
- * in strip order, groups keyed per snapshot, browser IDs dropped, capture rules applied.
+ * in strip order, groups keyed per snapshot, browser IDs dropped, capture rules (including the
+ * user's exclude list) applied.
  */
-export function captureLayout(windows: BrowserWindow[], groups: BrowserGroup[]): SnapWindow[] {
+export function captureLayout(
+  windows: BrowserWindow[],
+  groups: BrowserGroup[],
+  exclude: readonly ExcludeRule[] = [],
+): SnapWindow[] {
   const groupsById = new Map(groups.map((g) => [g.id, g]));
   return sanitizeWindows(
     windows
       .filter((w) => !w.incognito && (w.type === undefined || w.type === 'normal'))
       .map((w) => toSnapWindow(w, groupsById)),
+    { exclude },
   );
 }

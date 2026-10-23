@@ -29,7 +29,7 @@ export interface MessageMap {
   updateSettings: {
     request: {
       type: 'updateSettings';
-      patch: Partial<Pick<Settings, 'serverUrl' | 'deviceName' | 'applyMode'>>;
+      patch: Partial<Pick<Settings, 'serverUrl' | 'deviceName' | 'applyMode' | 'excludeList'>>;
     };
     result: Settings;
   };

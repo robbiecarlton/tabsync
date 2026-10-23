@@ -9,3 +9,4 @@ export * from './matching';
 export * from './diff';
 export * from './retention';
 export * from './compare';
+export * from './exclude';

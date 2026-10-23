@@ -1,5 +1,7 @@
+import { matchesExcludeList, parseExcludeList } from '@tabsync/shared';
 import { render } from 'preact';
 import { useCallback, useEffect, useState } from 'preact/hooks';
+import { chromeBrowser } from '../lib/browser';
 import type { StatusView } from '../lib/engine';
 import type { LogLine } from '../lib/logger';
 import { send } from '../lib/messages';
@@ -276,6 +278,78 @@ function DebugLog() {
   );
 }
 
+function ExcludeCard({ saved, onSaved }: { saved: string; onSaved: () => void }) {
+  const [text, setText] = useState(saved);
+  const [openUrls, setOpenUrls] = useState<string[]>([]);
+  const [message, setMessage] = useState<string>();
+  const { rules, errors } = parseExcludeList(text);
+  const matching = openUrls.filter((u) => matchesExcludeList(u, rules)).length;
+
+  useEffect(() => {
+    void chromeBrowser
+      .getWindows()
+      .then((windows) =>
+        setOpenUrls(
+          windows
+            .filter((w) => !w.incognito)
+            .flatMap((w) => (w.tabs ?? []).map((t) => t.url || t.pendingUrl || '')),
+        ),
+      );
+  }, []);
+
+  const save = async () => {
+    await send<'updateSettings'>({
+      type: 'updateSettings',
+      patch: { excludeList: text.trim() ? text : '' },
+    });
+    setMessage('Saved.');
+    onSaved();
+  };
+
+  return (
+    <section class="card stack">
+      <h2>Never sync these sites</h2>
+      <p class="muted small">
+        One per line. <code>bank.com</code> covers the site and its subdomains; a full URL like{' '}
+        <code>https://example.com/private/</code> covers addresses starting with it. Lines starting
+        with <code>#</code> are comments.
+      </p>
+      <textarea
+        rows={6}
+        placeholder={'bank.com\nhttps://example.com/private/'}
+        value={text}
+        onInput={(e) => {
+          setText(e.currentTarget.value);
+          setMessage(undefined);
+        }}
+      />
+      {errors.length > 0 && (
+        <ul class="error-text small">
+          {errors.map((e) => (
+            <li key={e.line}>
+              Line {e.line} (“{e.text}”): {e.message}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p class="muted small">
+        {rules.length === 0
+          ? 'Nothing excluded.'
+          : `${matching} open ${matching === 1 ? 'tab matches' : 'tabs match'}.`}{' '}
+        Excluded tabs aren’t synced from this device, aren’t opened here from other devices, and
+        aren’t closed by “Make it match exactly”. The list applies to this device only, so add it on
+        your other machines too. Existing history isn’t changed.
+      </p>
+      <div class="row">
+        <button class="primary" disabled={text === saved || errors.length > 0} onClick={save}>
+          Save
+        </button>
+        {message && <span class="muted">{message}</span>}
+      </div>
+    </section>
+  );
+}
+
 function Options() {
   const [view, setView] = useState<StatusView>();
   const [newSecret, setNewSecret] = useState<string>();
@@ -312,6 +386,13 @@ function Options() {
           <Connected view={view} onDisconnected={refresh} />
         ))}
       {view && <SettingsCard key={JSON.stringify(view.settings)} view={view} onSaved={refresh} />}
+      {view && (
+        <ExcludeCard
+          key={view.settings.excludeList}
+          saved={view.settings.excludeList}
+          onSaved={refresh}
+        />
+      )}
       <DebugLog />
     </main>
   );

@@ -1,3 +1,4 @@
+import { matchesExcludeList, type ExcludeRule } from './exclude';
 import type { SnapTab, SnapWindow } from './types';
 
 /** URL stored for a New Tab placeholder; reopening it gives the browser's own New Tab page. */
@@ -78,17 +79,27 @@ function placeholderTab(): SnapTab {
 
 /**
  * Applies the capture rules to one window:
- * - excluded URLs are dropped;
+ * - excluded URLs are dropped (internal pages, plus the user's exclude list if given);
  * - New Tab pages are kept as a single placeholder only if nothing else remains;
  * - a window with nothing left (e.g. just settings) yields `null`;
  * - groups with no remaining tabs are dropped;
  * - `data:` favicons are dropped: inline image data barely compresses and could push a large
  *   profile over the server's size limit (PLAN.md D16); favicons are a fallback only.
  */
-export function sanitizeWindow(window: SnapWindow): SnapWindow | null {
+export interface SanitizeOptions {
+  /** The user's exclude list (sites and URL prefixes never synced). */
+  exclude?: readonly ExcludeRule[];
+}
+
+export function sanitizeWindow(
+  window: SnapWindow,
+  { exclude = [] }: SanitizeOptions = {},
+): SnapWindow | null {
   const hasNewTab = window.tabs.some((t) => isNewTabUrl(t.url));
   let tabs = window.tabs
-    .filter((t) => !isNewTabUrl(t.url) && !isExcludedUrl(t.url))
+    .filter(
+      (t) => !isNewTabUrl(t.url) && !isExcludedUrl(t.url) && !matchesExcludeList(t.url, exclude),
+    )
     .map((t) => {
       if (t.favIconUrl?.startsWith('data:')) {
         const { favIconUrl: _dropped, ...rest } = t;
@@ -105,6 +116,9 @@ export function sanitizeWindow(window: SnapWindow): SnapWindow | null {
 }
 
 /** Applies `sanitizeWindow` to every window, dropping those left empty. */
-export function sanitizeWindows(windows: SnapWindow[]): SnapWindow[] {
-  return windows.map(sanitizeWindow).filter((w): w is SnapWindow => w !== null);
+export function sanitizeWindows(
+  windows: SnapWindow[],
+  options: SanitizeOptions = {},
+): SnapWindow[] {
+  return windows.map((w) => sanitizeWindow(w, options)).filter((w): w is SnapWindow => w !== null);
 }

@@ -6,6 +6,9 @@ import {
   matchWindows,
   NEW_TAB_URL,
   type SnapWindow,
+  matchesExcludeList,
+  sanitizeWindows,
+  type ExcludeRule,
 } from '@tabsync/shared';
 import type { BrowserApi } from './browser';
 import { captureLayout, type BrowserGroup, type BrowserWindow } from './capture';
@@ -43,12 +46,12 @@ export interface ApplyPlan {
   surplusWindowIds: number[];
 }
 
-function syncableUrl(url: string): string | null {
+function syncableUrl(url: string, exclude: readonly ExcludeRule[]): string | null {
   if (isNewTabUrl(url)) return NEW_TAB_URL;
-  return isExcludedUrl(url) ? null : url;
+  return isExcludedUrl(url) || matchesExcludeList(url, exclude) ? null : url;
 }
 
-function toLive(windows: BrowserWindow[]): LiveWindow[] {
+function toLive(windows: BrowserWindow[], exclude: readonly ExcludeRule[]): LiveWindow[] {
   return windows
     .filter(
       (w) => !w.incognito && (w.type === undefined || w.type === 'normal') && w.id !== undefined,
@@ -58,7 +61,7 @@ function toLive(windows: BrowserWindow[]): LiveWindow[] {
       tabs: [...(w.tabs ?? [])]
         .sort((a, b) => a.index - b.index)
         .flatMap((t) => {
-          const url = syncableUrl(t.url || t.pendingUrl || '');
+          const url = syncableUrl(t.url || t.pendingUrl || '', exclude);
           return url === null || t.id === undefined
             ? []
             : [{ id: t.id, url, groupId: t.groupId, pinned: t.pinned, active: t.active }];
@@ -72,10 +75,16 @@ const isBlank = (w: LiveWindow) => w.tabs.length > 0 && w.tabs.every((t) => t.ur
 /**
  * Decides which existing windows and tabs each target window reuses. Windows pair by greatest
  * tab overlap; remaining target windows reuse blank windows (only New Tab pages) before new
- * ones are created. Tabs match as a multiset by URL within a window.
+ * ones are created. Tabs match as a multiset by URL within a window. Tabs on the user's exclude
+ * list are invisible both ways: never opened from the target, never matched or closed here.
  */
-export function planApply(windows: BrowserWindow[], target: SnapWindow[]): ApplyPlan {
-  const live = toLive(windows);
+export function planApply(
+  windows: BrowserWindow[],
+  allTarget: SnapWindow[],
+  exclude: readonly ExcludeRule[] = [],
+): ApplyPlan {
+  const target = exclude.length ? sanitizeWindows(allTarget, { exclude }) : allTarget;
+  const live = toLive(windows, exclude);
   const { matches, unmatchedCurrent, unmatchedTarget } = matchWindows(live, target);
   const pairs = new Map(matches.map((m) => [m.target, m.current]));
 
@@ -116,6 +125,8 @@ export interface ApplyOptions {
   mode: ApplyMode;
   /** "Match exactly" closes surplus windows only when the user agreed to it. */
   closeSurplusWindows?: boolean;
+  /** The user's exclude list. */
+  exclude?: readonly ExcludeRule[];
 }
 
 const urlToOpen = (url: string) => (isNewTabUrl(url) ? undefined : url);
@@ -123,7 +134,8 @@ const urlToOpen = (url: string) => (isNewTabUrl(url) ? undefined : url);
 /**
  * Makes the browser's windows match `target` (reconcile steps 2–6 in SPEC.md):
  * creates missing tabs unloaded, puts tabs in target order (pinned first), rebuilds groups,
- * and in "match exactly" mode closes unmatched tabs last. Internal pages are never closed.
+ * and in "match exactly" mode closes unmatched tabs last. Internal pages and excluded sites are
+ * never closed.
  */
 export async function applyLayout(
   browser: BrowserApi,
@@ -131,13 +143,14 @@ export async function applyLayout(
   options: ApplyOptions,
 ): Promise<ApplyResult> {
   const [windows, groups] = await Promise.all([browser.getWindows(), browser.getGroups()]);
-  const plan = planApply(windows, target);
+  const exclude = options.exclude ?? [];
+  const plan = planApply(windows, target, exclude);
   const toDiscard: number[] = [];
   const skipped: string[] = [];
 
   for (const wp of plan.windows) {
     const existing = windows.find((w) => w.id === wp.windowId);
-    if (existing && isAlreadyApplied(existing, groups, wp, options.mode)) continue;
+    if (existing && isAlreadyApplied(existing, groups, wp, options.mode, exclude)) continue;
     await applyWindow(browser, wp, existing, options.mode, toDiscard, skipped);
   }
 
@@ -153,6 +166,7 @@ function isAlreadyApplied(
   groups: BrowserGroup[],
   wp: WindowPlan,
   mode: ApplyMode,
+  exclude: readonly ExcludeRule[],
 ): boolean {
   if (
     wp.extras.length > 0 &&
@@ -160,7 +174,7 @@ function isAlreadyApplied(
   )
     return false;
   if (wp.reuse.some((id) => id === undefined)) return false;
-  const [current] = captureLayout([window], groups);
+  const [current] = captureLayout([window], groups, exclude);
   return !!current && canonicalLayout([current]) === canonicalLayout([wp.target]);
 }
 

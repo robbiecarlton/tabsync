@@ -17,6 +17,9 @@ import {
   type Snapshot,
   type SnapshotReason,
   type SnapWindow,
+  parseExcludeList,
+  sanitizeWindows,
+  type ExcludeRule,
 } from '@tabsync/shared';
 import {
   ApiError,
@@ -185,12 +188,24 @@ export class SyncEngine {
     return { keys, settings, api: this.deps.createApi(settings.serverUrl, keys) };
   }
 
+  /** The user's exclude list (per device). Invalid lines are ignored here; options rejects them. */
+  private async excludeRules(): Promise<ExcludeRule[]> {
+    return parseExcludeList((await this.deps.repo.settings()).excludeList).rules;
+  }
+
+  /** Another device's windows as this device sees them: without sites this device excludes. */
+  private async visible(windows: SnapWindow[]): Promise<SnapWindow[]> {
+    const exclude = await this.excludeRules();
+    return exclude.length ? sanitizeWindows(windows, { exclude }) : windows;
+  }
+
   private async capture(): Promise<SnapWindow[]> {
-    const [windows, groups] = await Promise.all([
+    const [windows, groups, exclude] = await Promise.all([
       this.deps.browser.getWindows(),
       this.deps.browser.getGroups(),
+      this.excludeRules(),
     ]);
-    return captureLayout(windows, groups);
+    return captureLayout(windows, groups, exclude);
   }
 
   private buildSnapshot(
@@ -407,7 +422,11 @@ export class SyncEngine {
         this.deps.log(`Pull failed (${f.kind}): ${f.message}`);
         return this.updateBadge();
       }
-      state = { ...state, remote, remoteFingerprint: await fingerprint(remote.windows) };
+      state = {
+        ...state,
+        remote,
+        remoteFingerprint: await fingerprint(await this.visible(remote.windows)),
+      };
       if (isBehind(state)) {
         const fp = await fingerprint(await this.capture());
         state = this.adoptIfIdentical({ ...state, localFingerprint: fp }, fp);
@@ -500,7 +519,7 @@ export class SyncEngine {
         state = {
           ...state,
           remote: newer,
-          remoteFingerprint: await fingerprint(newer.windows),
+          remoteFingerprint: await fingerprint(await this.visible(newer.windows)),
           lastPullAt: now(),
         };
         state = this.adoptIfIdentical(state, fp);
@@ -582,6 +601,7 @@ export class SyncEngine {
       const { skipped } = await applyLayout(this.deps.browser, target.windows, {
         mode,
         closeSurplusWindows,
+        exclude: await this.excludeRules(),
       });
       for (const url of skipped) log(`Couldn’t open ${url}; left it out`);
     } catch (err) {
@@ -716,6 +736,7 @@ export class SyncEngine {
       kind: m.kind,
     }));
     const windows = await this.deps.browser.getWindows();
+    const exclude = await this.excludeRules();
 
     const describe = async (id: string): Promise<HistoryEntry | undefined> => {
       try {
@@ -728,7 +749,7 @@ export class SyncEngine {
           mine: s.device.id === session.settings.deviceId,
           tabCount: s.windows.reduce((n, w) => n + w.tabs.length, 0),
           windowCount: s.windows.length,
-          surplusWindows: planApply(windows, s.windows).surplusWindowIds.length,
+          surplusWindows: planApply(windows, s.windows, exclude).surplusWindowIds.length,
         };
       } catch (err) {
         this.deps.log(`Couldn’t read snapshot ${id.slice(0, 8)}: ${describeFailure(err).message}`);
@@ -821,7 +842,11 @@ export class SyncEngine {
       const lastFingerprint = await fingerprint(await this.capture());
       let state: SyncState = { lastFingerprint, lastPullAt: this.deps.now() };
       if (remote) {
-        state = { ...state, remote, remoteFingerprint: await fingerprint(remote.windows) };
+        state = {
+          ...state,
+          remote,
+          remoteFingerprint: await fingerprint(await this.visible(remote.windows)),
+        };
         state = this.adoptIfIdentical(state, lastFingerprint);
       }
       await this.deps.repo.connect({ secret }, state);
@@ -848,9 +873,21 @@ export class SyncEngine {
   }
 
   updateSettings(
-    patch: Partial<Pick<Settings, 'serverUrl' | 'deviceName' | 'applyMode'>>,
+    patch: Partial<Pick<Settings, 'serverUrl' | 'deviceName' | 'applyMode' | 'excludeList'>>,
   ): Promise<Settings> {
-    return this.run(() => this.deps.repo.updateSettings(patch));
+    return this.run(async () => {
+      const before = await this.deps.repo.settings();
+      const after = await this.deps.repo.updateSettings(patch);
+      if (after.excludeList !== before.excludeList && (await this.deps.repo.credentials())) {
+        // The visible layout changed: sync it soon so newly excluded tabs leave the latest snapshot.
+        const now = this.deps.now();
+        const state = await this.deps.repo.patchState({ dirtySince: now, lastChangeAt: now });
+        this.schedule(pushDueAt(state.dirtySince!, state.lastChangeAt!));
+        this.deps.log('Exclude list changed');
+        await this.updateBadge();
+      }
+      return after;
+    });
   }
 
   async status(): Promise<StatusView> {
@@ -869,7 +906,7 @@ export class SyncEngine {
     };
     if (creds && state.remote && isConflict(state)) {
       const current = await this.capture();
-      const diff = diffLayouts(state.remote.windows, current);
+      const diff = diffLayouts(await this.visible(state.remote.windows), current);
       const summarize = (tabs: { title: string; url: string; favIconUrl?: string }[]) =>
         tabs.slice(0, 5).map((t) => ({
           title: t.title || t.url,
@@ -891,7 +928,9 @@ export class SyncEngine {
         this.deps.browser.getWindows(),
         this.deps.browser.getGroups(),
       ]);
-      const diff = diffLayouts(captureLayout(windows, groups), state.remote.windows);
+      const exclude = await this.excludeRules();
+      const theirs = await this.visible(state.remote.windows);
+      const diff = diffLayouts(captureLayout(windows, groups, exclude), theirs);
       view.behind = {
         snapshotId: state.remote.snapshotId,
         deviceName: state.remote.device.name,
@@ -900,7 +939,7 @@ export class SyncEngine {
         opened: diff.opened.length,
         closed: diff.closed.length,
         groupsChanged: diff.groupsChanged,
-        surplusWindows: planApply(windows, state.remote.windows).surplusWindowIds.length,
+        surplusWindows: planApply(windows, theirs, exclude).surplusWindowIds.length,
       };
     }
     return view;

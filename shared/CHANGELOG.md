@@ -7,6 +7,14 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-23
+
+### Added
+
+- `parseExcludeList` / `matchesExcludeList` for the user exclude list (domains with subdomains,
+  optional port, URL prefixes, comments; line-numbered errors).
+- `sanitizeWindow(s)` accept `{ exclude }` to drop matching tabs.
+
 ## [1.1.0] - 2026-10-23
 
 ### Added

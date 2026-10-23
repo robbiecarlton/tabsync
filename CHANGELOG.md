@@ -10,6 +10,7 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **shared 1.2.0 / extension 1.4.0:** user exclude list (v2).
 - **shared 1.1.0 / extension 1.3.0:** diffs: compare snapshots, or a snapshot with what's open
   now (opened / closed / moved), from the snapshot browser and the popup (v2).
 - **extension 1.2.1:** the snapshot browser focuses tabs that are already open instead of

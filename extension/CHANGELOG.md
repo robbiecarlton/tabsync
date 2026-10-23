@@ -7,6 +7,15 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-23
+
+### Added
+
+- "Never sync these sites" in options: a per-device exclude list of sites and URL prefixes,
+  with line-numbered errors and a live count of matching open tabs. Excluded tabs aren't
+  synced from this device, aren't opened here from other devices, and aren't closed by "Make it
+  match exactly". Saving syncs promptly so newly excluded tabs leave the latest snapshot.
+
 ## [1.3.0] - 2026-10-23
 
 ### Added

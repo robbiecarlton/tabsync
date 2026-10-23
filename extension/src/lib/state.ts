@@ -12,6 +12,8 @@ export interface Settings {
   deviceName: string;
   /** Last choice for applying remote tabs; "add missing only" until changed. */
   applyMode: ApplyMode;
+  /** The user's exclude list, as typed (see parseExcludeList); per device. */
+  excludeList: string;
 }
 
 /** The profile secret, formatted. chrome.storage.local only, never sync. Cleared on Disconnect. */
@@ -79,6 +81,7 @@ export class StateRepo {
       deviceId: stored?.deviceId ?? this.randomId(),
       deviceName: stored?.deviceName ?? defaultDeviceName(),
       applyMode: stored?.applyMode ?? 'add-missing',
+      excludeList: stored?.excludeList ?? '',
     };
     if (!stored || Object.keys(settings).some((k) => stored[k as keyof Settings] === undefined)) {
       await this.store.set({ [KEYS.settings]: settings });
