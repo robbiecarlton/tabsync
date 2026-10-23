@@ -17,7 +17,8 @@ is the unified changelog across all packages.
 
 ## Getting started
 
-Requires Node 20+ (see `.nvmrc`).
+Requires Node 22.12 or newer (see `.nvmrc`); `npm ci` refuses older versions. With
+[nvm](https://github.com/nvm-sh/nvm): `nvm install && nvm use`.
 
 ```sh
 npm install

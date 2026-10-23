@@ -10,6 +10,8 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Node 22.12+ is required (Vitest and Vite need it); `engines` says so and `.npmrc` sets
+  `engine-strict` so older versions fail at install with a clear message.
 - **extension 0.6.0:** defaults to the deployed Railway server.
 - `DEPLOY.md` describes the default server URL instead of the pending code change.
 - **shared 0.3.0 / extension 0.5.1:** snapshots no longer store `data:` favicons; clearer
