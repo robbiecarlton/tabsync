@@ -44,18 +44,19 @@ package's `package.json`, so bump the version there.
 
 ## How it works
 
-| Path                         | What                                                                         |
-| ---------------------------- | ---------------------------------------------------------------------------- |
-| `src/background/`            | Service worker: registers tab/group/window listeners, alarm, message handler |
-| `src/lib/engine.ts`          | `SyncEngine`: capture → fingerprint → debounce → encrypt → push, retries     |
-| `src/lib/capture.ts`         | Browser windows/tabs/groups → snapshot windows (via shared capture rules)    |
-| `src/lib/api.ts`             | HTTP client for the server (`Bearer <profileId>.<authToken>`)                |
-| `src/lib/state.ts`           | Persisted settings, credentials and sync state (`chrome.storage.local`)      |
-| `src/lib/status.ts`          | Status and badge rules                                                       |
-| `src/lib/schedule.ts`        | Debounce, settle, retry and error timings                                    |
-| `src/lib/messages.ts`        | Typed messages between popup/options and the worker                          |
-| `src/popup/`, `src/options/` | UI                                                                           |
-| `src/manifest.ts`            | Manifest definition                                                          |
+| Path                               | What                                                                         |
+| ---------------------------------- | ---------------------------------------------------------------------------- |
+| `src/background/`                  | Service worker: registers tab/group/window listeners, alarm, message handler |
+| `src/lib/engine.ts`                | `SyncEngine`: capture → fingerprint → debounce → encrypt → push, retries     |
+| `src/lib/capture.ts`               | Browser windows/tabs/groups → snapshot windows (via shared capture rules)    |
+| `src/lib/api.ts`                   | HTTP client for the server (`Bearer <profileId>.<authToken>`)                |
+| `src/lib/state.ts`                 | Persisted settings, credentials and sync state (`chrome.storage.local`)      |
+| `src/lib/status.ts`                | Status and badge rules                                                       |
+| `src/lib/schedule.ts`              | Debounce, settle, retry and error timings                                    |
+| `src/lib/messages.ts`              | Typed messages between popup/options and the worker                          |
+| `src/popup/`, `src/options/`       | UI                                                                           |
+| `src/snapshots/`, `snapshots.html` | Snapshot browser page                                                        |
+| `src/manifest.ts`                  | Manifest definition                                                          |
 
 Everything the worker needs to resume lives in `chrome.storage.local`. That includes the
 pending snapshot and the debounce markers, so the worker can be killed at any point. A
