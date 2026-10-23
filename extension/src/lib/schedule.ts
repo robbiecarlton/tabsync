@@ -23,3 +23,5 @@ export function retryDelay(attempt: number): number {
 export const ECHO_GRACE_MS = 2_000;
 /** Window-focus pulls happen at most this often. */
 export const PULL_MIN_INTERVAL_MS = 30_000;
+/** Retry interval for persistent failures (rejected credentials, clock skew, too large). */
+export const PERSISTENT_RETRY_MS = 5 * 60_000;

@@ -371,8 +371,8 @@ export class FakeServer {
         this.profiles.set(creds.profileId, creds.authToken);
       },
       latest: async (ifNoneMatch?: string): Promise<LatestResult> => {
-        guard();
         this.latestCalls++;
+        guard();
         const latest = mine()
           .filter((s) => s.kind !== 'pre-restore')
           .at(-1);

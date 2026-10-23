@@ -8,6 +8,12 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **extension 0.5.0:** icon; an unreachable server shows Pending then Error after 5 minutes;
+  persistent failures retry every 5 minutes; clearer error messages.
+- Root README links the Railway deployment guide (`DEPLOY.md`).
+
 ### Fixed
 
 - **extension 0.3.1:** Apply failed with "Invalid value for state" when opening a window for a

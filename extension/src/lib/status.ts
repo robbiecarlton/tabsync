@@ -29,7 +29,8 @@ export function computeStatus(setUp: boolean, state: SyncState, now: number): Sy
   }
   if (isConflict(state)) return 'conflict';
   if (isBehind(state)) return 'behind';
-  if (state.pending || state.dirtySince !== undefined) return 'pending';
+  // Unsent changes, or a server that's currently unreachable (Error after ERROR_AFTER_MS).
+  if (state.pending || state.dirtySince !== undefined || err?.kind === 'network') return 'pending';
   return 'synced';
 }
 

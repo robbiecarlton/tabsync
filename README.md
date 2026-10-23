@@ -43,6 +43,11 @@ unpacked** and pick `extension/dist`. After a rebuild, click the reload icon on 
 
 Run a single package's tests with e.g. `npm test -w server`.
 
+## Deploying
+
+The server runs on Railway with Railway Postgres. See [`DEPLOY.md`](DEPLOY.md) for setup,
+variables, migrations on deploy, pointing the extension at it, and operations.
+
 ## Note on npm versions
 
 npm 10 crashes (`Cannot read properties of null (reading 'edgesOut')`) when resolving Vitest 5's

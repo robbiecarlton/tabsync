@@ -1,6 +1,5 @@
 import {
   decryptSnapshot,
-  DecryptError,
   deriveProfileKeys,
   describeDiff,
   diffLayouts,
@@ -21,7 +20,6 @@ import {
 } from '@tabsync/shared';
 import {
   ApiError,
-  NetworkError,
   type Credentials as ApiCredentials,
   type SnapshotRecord,
   type SyncApi,
@@ -29,8 +27,16 @@ import {
 import type { BrowserApi } from './browser';
 import { captureLayout } from './capture';
 import type { Log } from './logger';
+import { describeFailure, type Failure } from './errors';
 import { applyLayout, planApply, type ApplyMode } from './reconcile';
-import { ECHO_GRACE_MS, PULL_MIN_INTERVAL_MS, pushDueAt, retryDelay, SETTLE_MS } from './schedule';
+import {
+  ECHO_GRACE_MS,
+  PERSISTENT_RETRY_MS,
+  PULL_MIN_INTERVAL_MS,
+  pushDueAt,
+  retryDelay,
+  SETTLE_MS,
+} from './schedule';
 import type { ErrorKind, Settings, StateRepo, SyncState } from './state';
 import { badgeFor, computeStatus, isBehind, isConflict, type SyncStatus } from './status';
 
@@ -126,43 +132,6 @@ interface Session {
   keys: ProfileKeys;
   api: SyncApi;
   settings: Settings;
-}
-
-interface Failure {
-  kind: ErrorKind;
-  message: string;
-  transient: boolean;
-}
-
-function classify(err: unknown): Failure {
-  if (err instanceof NetworkError)
-    return { kind: 'network', message: err.message, transient: true };
-  if (err instanceof DecryptError) {
-    return {
-      kind: 'decrypt',
-      message: `Couldn’t decrypt the latest snapshot: ${err.message}`,
-      transient: false,
-    };
-  }
-  if (err instanceof ApiError) {
-    if (err.status === 401) {
-      return {
-        kind: 'auth',
-        message: 'The server rejected this profile’s credentials',
-        transient: false,
-      };
-    }
-    return {
-      kind: err.transient ? 'network' : 'server',
-      message: err.message,
-      transient: err.transient,
-    };
-  }
-  return {
-    kind: 'server',
-    message: err instanceof Error ? err.message : String(err),
-    transient: false,
-  };
 }
 
 /**
@@ -287,7 +256,8 @@ export class SyncEngine {
       lastError: { kind: f.kind, message: f.message, at: t },
       failingSince: state.failingSince ?? t,
       retryAttempt: attempt,
-      nextRetryAt: f.transient ? t + retryDelay(attempt) : undefined,
+      // Persistent problems (bad credentials, clock skew…) are retried rarely; Sync now retries at once.
+      nextRetryAt: t + (f.transient ? retryDelay(attempt) : PERSISTENT_RETRY_MS),
     };
   }
 
@@ -353,6 +323,10 @@ export class SyncEngine {
       const state = await this.deps.repo.state();
       const due = this.nextDue(state);
       if (due !== undefined && due <= this.deps.now()) await this.flushNow({ force: false });
+      // Don't hammer the server every minute with requests that will fail the same way.
+      const { lastError } = await this.deps.repo.state();
+      const persistent = lastError && lastError.kind !== 'network';
+      if (persistent && this.deps.now() - lastError.at < PERSISTENT_RETRY_MS) return;
       await this.pullNow();
     });
   }
@@ -408,7 +382,7 @@ export class SyncEngine {
       if (result.status === 'ok') record = result.snapshot;
     } catch (err) {
       // Record the error for status, but leave the push retry schedule alone.
-      const f = classify(err);
+      const f = describeFailure(err);
       const { lastError, failingSince } = this.failureState(state, f, 0);
       await repo.saveState({ ...state, lastError, failingSince });
       this.deps.log(`Pull failed (${f.kind}): ${f.message}`);
@@ -422,7 +396,7 @@ export class SyncEngine {
       try {
         remote = await this.decrypt(session, record);
       } catch (err) {
-        const f = classify(err);
+        const f = describeFailure(err);
         const { lastError, failingSince } = this.failureState(state, f, 0);
         await repo.saveState({ ...state, lastError, failingSince });
         this.deps.log(`Pull failed (${f.kind}): ${f.message}`);
@@ -543,7 +517,7 @@ export class SyncEngine {
       });
       this.deps.log(`Pushed snapshot ${snapshot.snapshotId.slice(0, 8)} (${size} bytes)`);
     } catch (err) {
-      const f = classify(err);
+      const f = describeFailure(err);
       const failed = { ...state, ...this.failureState(state, f, state.retryAttempt ?? 0) };
       await repo.saveState(failed);
       this.deps.log(`Push failed (${f.kind}): ${f.message}`);
@@ -591,7 +565,7 @@ export class SyncEngine {
         await this.upload(session, preRestore);
       } catch (err) {
         throw new ApplyError(
-          `Couldn’t save an undo point, so nothing was changed: ${classify(err).message}`,
+          `Couldn’t save an undo point, so nothing was changed: ${describeFailure(err).message}`,
         );
       }
       log(`Saved pre-restore snapshot ${preRestore.snapshotId.slice(0, 8)}`);
@@ -700,7 +674,7 @@ export class SyncEngine {
       try {
         target = await this.fetchSnapshot(session, snapshotId);
       } catch (err) {
-        throw new ApplyError(`Couldn’t load that snapshot: ${classify(err).message}`);
+        throw new ApplyError(`Couldn’t load that snapshot: ${describeFailure(err).message}`);
       }
       await this.applySnapshot(session, target, mode, closeSurplusWindows, 'push');
       await this.deps.repo.updateSettings({ applyMode: mode });
@@ -738,7 +712,7 @@ export class SyncEngine {
           surplusWindows: planApply(windows, s.windows).surplusWindowIds.length,
         };
       } catch (err) {
-        this.deps.log(`Couldn’t read snapshot ${id.slice(0, 8)}: ${classify(err).message}`);
+        this.deps.log(`Couldn’t read snapshot ${id.slice(0, 8)}: ${describeFailure(err).message}`);
         return undefined;
       }
     };
@@ -772,7 +746,7 @@ export class SyncEngine {
       try {
         await this.deps.createApi(settings.serverUrl, keys).register();
       } catch (err) {
-        throw new SetupError(classify(err).message);
+        throw new SetupError(describeFailure(err).message);
       }
       await this.deps.repo.connect({ secret }, {});
       this.deps.log(`Created sync profile ${keys.profileId.slice(0, 6)}…`);
@@ -810,7 +784,7 @@ export class SyncEngine {
             'No sync profile found for this secret. Check it was copied completely.',
           );
         }
-        throw new SetupError(classify(err).message);
+        throw new SetupError(describeFailure(err).message);
       }
       let remote: Snapshot | undefined;
       if (latest.status === 'ok') {

@@ -1,5 +1,6 @@
+import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { buildManifest } from './manifest';
+import { buildManifest, ICONS } from './manifest';
 
 describe('buildManifest', () => {
   const manifest = buildManifest({ version: '1.2.3' });
@@ -20,5 +21,12 @@ describe('buildManifest', () => {
     expect(manifest.background).toEqual({ service_worker: 'background.js', type: 'module' });
     expect(manifest.action?.default_popup).toBe('popup.html');
     expect(manifest.options_page).toBe('options.html');
+  });
+
+  it('references icon files that exist', () => {
+    expect(manifest.icons).toEqual(ICONS);
+    for (const path of Object.values(ICONS)) {
+      expect(existsSync(new URL(`../public/${path}`, import.meta.url)), path).toBe(true);
+    }
   });
 });

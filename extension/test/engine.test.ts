@@ -277,6 +277,41 @@ describe('failures and recovery', () => {
     expect(h.server.snapshots.at(-1)!.id).toBe(pendingId);
   });
 
+  it('shows an unreachable server as Pending, then Error after 5 minutes, with nothing to push', async () => {
+    h.server.offline = true;
+    await h.engine.tick();
+    expect((await h.engine.status()).status).toBe('pending');
+    for (let i = 0; i < 5; i++) {
+      await h.clock.advance(60_000, h.engine);
+      await h.engine.tick();
+    }
+    expect((await h.engine.status()).status).toBe('error');
+    h.server.offline = false;
+    await h.clock.advance(60_000, h.engine);
+    await h.engine.tick();
+    expect((await h.engine.status()).status).toBe('synced');
+  });
+
+  it('retries a persistent failure every 5 minutes, not every minute; Sync now retries at once', async () => {
+    h.server.profiles.clear();
+    h.browser.openTab(0, 'https://c.example/');
+    await h.engine.syncNow();
+    const attempts = () => h.server.latestCalls;
+    const before = attempts();
+    for (let i = 0; i < 4; i++) {
+      await h.clock.advance(60_000, h.engine);
+      await h.engine.tick();
+    }
+    expect(attempts()).toBe(before);
+    await h.clock.advance(60_000, h.engine);
+    await h.engine.tick();
+    expect(attempts()).toBeGreaterThan(before);
+
+    const now = attempts();
+    await h.engine.syncNow();
+    expect(attempts()).toBeGreaterThan(now);
+  });
+
   it('shows Error immediately when credentials are rejected', async () => {
     h.server.profiles.clear();
     h.browser.openTab(0, 'https://c.example/');
