@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_SERVER_URL } from './lib/state';
 import { buildManifest, ICONS } from './manifest';
 
 describe('buildManifest', () => {
@@ -28,5 +29,10 @@ describe('buildManifest', () => {
     for (const path of Object.values(ICONS)) {
       expect(existsSync(new URL(`../public/${path}`, import.meta.url)), path).toBe(true);
     }
+  });
+
+  it('grants host permission for the default server and the local dev server', () => {
+    expect(manifest.host_permissions).toContain(`${new URL(DEFAULT_SERVER_URL).origin}/*`);
+    expect(manifest.host_permissions).toContain('http://localhost:8787/*');
   });
 });

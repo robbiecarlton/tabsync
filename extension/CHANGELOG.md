@@ -7,6 +7,14 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-23
+
+### Changed
+
+- The default server URL is the deployed server, `https://tabsync-production.up.railway.app`,
+  which the manifest now grants (alongside `http://localhost:8787` for development). Existing
+  installs keep their saved server URL.
+
 ## [0.5.1] - 2026-10-23
 
 ### Changed

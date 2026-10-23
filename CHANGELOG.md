@@ -10,6 +10,8 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **extension 0.6.0:** defaults to the deployed Railway server.
+- `DEPLOY.md` describes the default server URL instead of the pending code change.
 - **shared 0.3.0 / extension 0.5.1:** snapshots no longer store `data:` favicons; clearer
   size-limit error message.
 - **extension 0.5.0:** icon; an unreachable server shows Pending then Error after 5 minutes;

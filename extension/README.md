@@ -28,7 +28,8 @@ package's `package.json`, so bump the version there.
 ## Trying it locally
 
 1. Run `npm run dev` at the repo root to start the server on `localhost:8787` and the
-   extension build.
+   extension build. The extension defaults to the deployed server, so set **Server URL** to
+   `http://localhost:8787` in its options page first.
 2. Load or reload the extension, open its options page and click **Create new sync
    profile**. The badge turns green.
 3. Open or close a tab. The badge turns grey, then green again about 5 s later. Each push
@@ -61,7 +62,8 @@ pending snapshot and the debounce markers, so the worker can be killed at any po
 1-minute alarm flushes anything a lost in-memory timer would have handled. The secret lives
 only in `chrome.storage.local`, never in `chrome.storage.sync`.
 
-**Custom server URL:** the manifest grants `http://localhost:8787` only. Saving another URL in
+**Server URL:** defaults to the deployed server (`https://tabsync-production.up.railway.app`).
+The manifest grants it and `http://localhost:8787`. Saving any other URL in
 options asks Brave for permission to reach that one origin.
 
 ## Tests

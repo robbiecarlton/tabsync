@@ -57,12 +57,14 @@ extension reaches the server through its host permission, not CORS.
 
 ## 5. Point the extension at it
 
-**Quick way (no code change):** on each device, open the extension's options page, set
-**Server URL** to `https://<your-domain>` and click **Save**. Brave asks for permission to
-reach that site; allow it.
+The extension's default server URL is the deployed server,
+`https://tabsync-production.up.railway.app`, and the manifest grants it, so new installs need
+no setup. If you deploy somewhere else, change `DEFAULT_SERVER_URL` in
+`extension/src/lib/state.ts` and `SERVER_HOST_PERMISSIONS` in `extension/src/manifest.ts` (a
+test checks they agree). Alternatively, set **Server URL** in the options page; Brave asks for
+permission to reach that site.
 
-**Permanent way (milestone 6 code change):** tell me the domain. I'll make it the default
-server URL and add it to the manifest's `host_permissions`, so new installs need no setup.
+Existing installs keep whatever server URL they have saved.
 
 ### Moving existing devices over
 

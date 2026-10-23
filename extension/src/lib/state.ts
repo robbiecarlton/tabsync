@@ -2,7 +2,8 @@ import type { Snapshot } from '@tabsync/shared';
 import type { ApplyMode } from './reconcile';
 import type { KeyValueStore } from './store';
 
-export const DEFAULT_SERVER_URL = 'http://localhost:8787';
+/** The deployed server (DEPLOY.md). For local development set http://localhost:8787 in options. */
+export const DEFAULT_SERVER_URL = 'https://tabsync-production.up.railway.app';
 
 /** Per-device preferences. Kept on Disconnect. */
 export interface Settings {
