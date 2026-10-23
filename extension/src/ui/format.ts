@@ -15,5 +15,6 @@ export const STATUS_TEXT = {
   'not-setup': 'Not set up',
   synced: 'Synced',
   pending: 'Changes waiting to sync',
+  behind: 'Newer tabs available',
   error: 'Sync error',
 } as const;

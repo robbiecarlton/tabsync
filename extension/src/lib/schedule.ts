@@ -18,3 +18,8 @@ export function pushDueAt(dirtySince: number, lastChangeAt: number): number {
 export function retryDelay(attempt: number): number {
   return Math.min(60_000, 5_000 * 2 ** Math.max(0, attempt - 1));
 }
+
+/** After applying a snapshot, late tab events from our own operations are ignored this long. */
+export const ECHO_GRACE_MS = 2_000;
+/** Window-focus pulls happen at most this often. */
+export const PULL_MIN_INTERVAL_MS = 30_000;

@@ -3,7 +3,7 @@ import { chromeBrowser } from '../lib/browser';
 import { SyncEngine } from '../lib/engine';
 import { createLogger, LOG_KEY, type LogLine } from '../lib/logger';
 import type { Reply, Request } from '../lib/messages';
-import { ALARM_NAME, ALARM_PERIOD_MINUTES } from '../lib/schedule';
+import { ALARM_NAME, ALARM_PERIOD_MINUTES, PULL_MIN_INTERVAL_MS } from '../lib/schedule';
 import { StateRepo } from '../lib/state';
 import { ChromeStore } from '../lib/store';
 
@@ -44,6 +44,11 @@ chrome.tabGroups.onMoved.addListener(changed);
 chrome.windows.onCreated.addListener(changed);
 chrome.windows.onRemoved.addListener(changed);
 
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  if (windowId !== chrome.windows.WINDOW_ID_NONE)
+    void engine.pull({ ifOlderThan: PULL_MIN_INTERVAL_MS });
+});
+
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM_NAME) void engine.tick();
 });
@@ -54,6 +59,12 @@ async function handle(request: Request): Promise<unknown> {
       return engine.status();
     case 'syncNow':
       await engine.syncNow();
+      return engine.status();
+    case 'pull':
+      await engine.pull();
+      return engine.status();
+    case 'apply':
+      await engine.applyRemote(request.mode, { closeSurplusWindows: request.closeSurplusWindows });
       return engine.status();
     case 'createProfile':
       return engine.createProfile();

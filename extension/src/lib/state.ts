@@ -1,4 +1,5 @@
 import type { Snapshot } from '@tabsync/shared';
+import type { ApplyMode } from './reconcile';
 import type { KeyValueStore } from './store';
 
 export const DEFAULT_SERVER_URL = 'http://localhost:8787';
@@ -8,6 +9,8 @@ export interface Settings {
   serverUrl: string;
   deviceId: string;
   deviceName: string;
+  /** Last choice for applying remote tabs; "add missing only" until changed. */
+  applyMode: ApplyMode;
 }
 
 /** The profile secret, formatted. chrome.storage.local only, never sync. Cleared on Disconnect. */
@@ -34,8 +37,14 @@ export interface SyncState {
   /** Debounce markers: first and latest layout change since the last capture. */
   dirtySince?: number;
   lastChangeAt?: number;
-  /** Ignore tab events until this time (browser session restore). */
+  /**
+   * Ignore tab events until this time, then fingerprint once: browser session restore, and
+   * just after applying a snapshot (echo suppression).
+   */
   settleUntil?: number;
+  /** Latest snapshot seen on the server (decrypted), and its fingerprint. */
+  remote?: Snapshot;
+  remoteFingerprint?: string;
   lastPushAt?: number;
   lastPullAt?: number;
   lastError?: SyncError;
@@ -62,13 +71,15 @@ export class StateRepo {
 
   async settings(): Promise<Settings> {
     const stored = await this.store.get<Partial<Settings>>(KEYS.settings);
-    if (stored?.deviceId && stored.serverUrl && stored.deviceName) return stored as Settings;
     const settings: Settings = {
       serverUrl: stored?.serverUrl ?? DEFAULT_SERVER_URL,
       deviceId: stored?.deviceId ?? this.randomId(),
       deviceName: stored?.deviceName ?? defaultDeviceName(),
+      applyMode: stored?.applyMode ?? 'add-missing',
     };
-    await this.store.set({ [KEYS.settings]: settings });
+    if (!stored || Object.keys(settings).some((k) => stored[k as keyof Settings] === undefined)) {
+      await this.store.set({ [KEYS.settings]: settings });
+    }
     return settings;
   }
 

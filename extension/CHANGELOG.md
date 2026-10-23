@@ -7,6 +7,28 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-22
+
+### Added
+
+- Pull: checks the server on popup open, window focus (throttled to 30 s), the 1-minute
+  alarm and Sync now, using `If-None-Match` so unchanged polls are cheap.
+- Behind state: blue "!" badge; the popup shows "<device> has newer tabs (3 opened, 1 closed,
+  …)" with Apply and the Add missing only / Make it match exactly choice (remembered per
+  device, default Add missing only), plus an opt-in to close surplus windows.
+- Reconcile: windows matched by overlap (blank windows reused), tabs matched as a multiset,
+  missing tabs created unloaded, pinned tabs first and in order, groups rebuilt with title,
+  colour and collapsed state, unmatched tabs closed last in match-exactly mode. Internal
+  pages are never closed.
+- A `pre-restore` snapshot is saved before every apply; if it can't be saved nothing changes.
+- Echo suppression: the applied snapshot becomes the base and the result isn't pushed back.
+- A newer snapshot identical to the local layout is adopted without prompting.
+
+### Changed
+
+- Pushes are held while Behind, so a newer snapshot from another device is never overwritten.
+- After joining, the profile's latest tabs show as Behind instead of Synced.
+
 ## [0.2.0] - 2026-10-22
 
 ### Added

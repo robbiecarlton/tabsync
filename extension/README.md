@@ -30,6 +30,10 @@ package's `package.json`, so bump the version there.
    profile**. The badge turns green.
 3. Open or close a tab. The badge turns grey, then green again about 5 s later. Each push
    appears in the options page's debug log.
+4. To try a second device, use another Brave profile. Load the same `extension/dist`
+   there, choose **I have a secret** in options and paste the secret. The badge turns blue
+   "!", and the popup offers **Apply** with **Add missing only** or **Make it match
+   exactly**.
 
 ## How it works
 
@@ -64,3 +68,9 @@ The engine is tested end to end against in-memory fakes in `test/fakes.ts`: a br
 store, a server with offline and error switches, and a clock whose timers fire only when the
 test advances time. Worker restarts are simulated by dropping timers and building a new
 engine over the same storage. The HTTP client is tested against a fake `fetch`.
+
+`FakeBrowser` simulates a tab strip with the browser's rules: pinned tabs first, contiguous
+groups, a tab dropped inside a group joining it, empty groups vanishing, and a window closing
+with its last tab. Reconcile tests apply a target layout and check that the captured result
+matches. Two-device tests (`pull-apply.test.ts`) run a "Laptop" and a "Desk" engine against
+one fake server.

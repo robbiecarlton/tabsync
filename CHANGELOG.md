@@ -14,6 +14,9 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **extension 0.3.0:** pull and Behind detection, Apply with add-missing / match-exactly,
+  reconcile of windows, tabs, pinned tabs and groups with unloaded tabs, pre-restore undo
+  snapshot, echo suppression.
 - **extension 0.2.0:** setup (create / join with secret), capture of windows, tabs and groups,
   debounced encrypted push with retry and restart safety, popup status and Sync now, toolbar
   badge, options page with settings, reveal secret, disconnect and debug log.

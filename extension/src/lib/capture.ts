@@ -8,6 +8,7 @@ import {
 
 /** The subset of chrome.windows.Window (populated) that capture reads. */
 export interface BrowserWindow {
+  id?: number;
   incognito: boolean;
   type?: string;
   focused: boolean;
@@ -20,6 +21,7 @@ export interface BrowserWindow {
 }
 
 export interface BrowserTab {
+  id?: number;
   index: number;
   url?: string;
   pendingUrl?: string;
@@ -32,6 +34,7 @@ export interface BrowserTab {
 
 export interface BrowserGroup {
   id: number;
+  windowId?: number;
   title?: string;
   color: string;
   collapsed: boolean;

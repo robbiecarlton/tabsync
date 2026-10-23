@@ -8,7 +8,13 @@ import {
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ApiError } from '../src/lib/api';
 import { SetupError } from '../src/lib/engine';
-import { DEBOUNCE_MS, ERROR_AFTER_MS, MAX_WAIT_MS, SETTLE_MS } from '../src/lib/schedule';
+import {
+  DEBOUNCE_MS,
+  ECHO_GRACE_MS,
+  ERROR_AFTER_MS,
+  MAX_WAIT_MS,
+  SETTLE_MS,
+} from '../src/lib/schedule';
 import { createHarness, T0, type Harness } from './fakes';
 
 let h: Harness;
@@ -86,22 +92,40 @@ describe('joinProfile', () => {
     await h.engine.wake({ freshSession: false });
   });
 
-  it('joins with the right secret without pushing anything', async () => {
+  it('joins with the right secret without pushing, showing the other device’s tabs as Behind', async () => {
     const uploadsBefore = h.server.uploads;
     await h.engine.joinProfile(secret.toLowerCase().replace(/-/g, ' '));
     expect(await h.repo.credentials()).toEqual({ secret });
     expect(h.server.uploads).toBe(uploadsBefore);
+    const status = await h.engine.status();
+    expect(status.status).toBe('behind');
+    expect(status.behind?.summary).toBe('2 opened, 1 closed');
+    expect(h.browser.badge).toMatchObject({ text: '!', color: '#1a73e8' });
+  });
+
+  it('joins straight to Synced when this device already has the same tabs', async () => {
+    h.browser.windows = [];
+    h.browser.addWindow(['https://a.example/', 'https://b.example/']);
+    await h.engine.joinProfile(secret);
     expect((await h.engine.status()).status).toBe('synced');
   });
 
-  it('pushes once the joined device changes its tabs, using its own device identity', async () => {
+  it('holds pushes until the remote tabs are applied, then pushes with its own identity', async () => {
     await h.engine.joinProfile(secret);
     h.browser.openTab(0, 'https://new.example/');
     await h.engine.layoutChanged();
+    await h.clock.advance(MAX_WAIT_MS, h.engine);
+    expect(h.server.snapshots).toHaveLength(1);
+
+    await h.engine.applyRemote('add-missing');
+    await h.clock.advance(ECHO_GRACE_MS, h.engine);
+    h.browser.openTab(0, 'https://after.example/');
+    await h.engine.layoutChanged();
     await h.clock.advance(DEBOUNCE_MS, h.engine);
-    const snaps = await decryptAll(secret);
+    const snaps = (await decryptAll(secret)).filter((x) => x.reason === 'auto');
     expect(snaps).toHaveLength(2);
     expect(snaps[1]!.device.id).not.toBe(snaps[0]!.device.id);
+    expect(snaps[1]!.parentSnapshotId).toBe(snaps[0]!.snapshotId);
   });
 
   it('rejects a wrong secret clearly and writes nothing', async () => {

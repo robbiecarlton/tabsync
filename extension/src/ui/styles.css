@@ -198,3 +198,26 @@ label {
   margin: 32px auto;
   padding: 0 16px;
 }
+
+.dot.behind {
+  background: var(--accent);
+}
+
+.choices {
+  display: grid;
+  gap: 6px;
+}
+
+.choice {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-weight: normal;
+  margin: 0;
+  cursor: pointer;
+}
+
+.choice input {
+  width: auto;
+  margin-top: 3px;
+}

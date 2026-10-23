@@ -1,17 +1,26 @@
 import type { StatusView } from './engine';
 import type { LogLine } from './logger';
+import type { ApplyMode } from './reconcile';
 import type { Settings } from './state';
 
 /** Requests from the popup/options page to the background worker, and their results. */
 export interface MessageMap {
   status: { request: { type: 'status' }; result: StatusView };
   syncNow: { request: { type: 'syncNow' }; result: StatusView };
+  pull: { request: { type: 'pull' }; result: StatusView };
+  apply: {
+    request: { type: 'apply'; mode: ApplyMode; closeSurplusWindows: boolean };
+    result: StatusView;
+  };
   createProfile: { request: { type: 'createProfile' }; result: { secret: string } };
   joinProfile: { request: { type: 'joinProfile'; secret: string }; result: null };
   revealSecret: { request: { type: 'revealSecret' }; result: string | null };
   disconnect: { request: { type: 'disconnect' }; result: null };
   updateSettings: {
-    request: { type: 'updateSettings'; patch: Partial<Pick<Settings, 'serverUrl' | 'deviceName'>> };
+    request: {
+      type: 'updateSettings';
+      patch: Partial<Pick<Settings, 'serverUrl' | 'deviceName' | 'applyMode'>>;
+    };
     result: Settings;
   };
   debugLog: { request: { type: 'debugLog' }; result: LogLine[] };
