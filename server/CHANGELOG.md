@@ -7,6 +7,13 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-22
+
+### Fixed
+
+- Server failed to start on a fresh checkout because PGlite could not create
+  `./.data/pglite` when `./.data` did not exist; parent directories are now created.
+
 ## [0.2.0] - 2026-10-22
 
 ### Added

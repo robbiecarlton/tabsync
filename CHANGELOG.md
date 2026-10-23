@@ -8,6 +8,10 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **server 0.2.1:** first start on a fresh checkout failed creating the PGlite data directory.
+
 ### Added
 
 - **server 0.2.0:** database schema and migration, the five sync endpoints with hashed bearer

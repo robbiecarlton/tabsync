@@ -1,3 +1,4 @@
+import { mkdirSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle as drizzlePglite } from 'drizzle-orm/pglite';
 import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
@@ -25,7 +26,10 @@ export function createDb(config: DbConfig): DbHandle {
     const pool = new pg.Pool({ connectionString: config.databaseUrl });
     return { db: drizzlePg(pool, { schema }) as unknown as Db, close: () => pool.end() };
   }
-  const client = new PGlite(config.pgliteDir ?? 'memory://');
+  const dir = config.pgliteDir ?? 'memory://';
+  // PGlite creates only the last path segment, so make sure the parents exist.
+  if (!dir.includes('://')) mkdirSync(dir, { recursive: true });
+  const client = new PGlite(dir);
   return { db: drizzlePglite(client, { schema }) as unknown as Db, close: () => client.close() };
 }
 
