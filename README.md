@@ -17,7 +17,8 @@ is the unified changelog across all packages.
 
 ## Getting started
 
-Requires Node 22.12 or newer (see `.nvmrc`); `npm ci` refuses older versions. With
+Requires Node 22.12 or newer (see `.nvmrc`); older versions fail during the build. npm prints
+an `EBADENGINE` warning at install if your Node is too old. With
 [nvm](https://github.com/nvm-sh/nvm): `nvm install && nvm use`.
 
 ```sh
