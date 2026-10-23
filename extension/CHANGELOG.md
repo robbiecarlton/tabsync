@@ -7,6 +7,8 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-23
+
 ### Added
 
 - The popup's Behind card has a collapsible "Show changes" list of the tabs applying will open,

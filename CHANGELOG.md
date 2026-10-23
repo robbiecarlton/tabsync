@@ -8,9 +8,11 @@ package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-23
+
 ### Added
 
-- **extension:** collapsible list of the specific tab changes on the popup's Behind card.
+- **extension 1.5.0:** collapsible list of the specific tab changes on the popup's Behind card.
 
 ## [2.0.0] - 2026-10-23
 
