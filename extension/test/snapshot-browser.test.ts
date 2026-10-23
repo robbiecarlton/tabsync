@@ -1,7 +1,7 @@
 import { NEW_TAB_URL } from '@tabsync/shared';
 import { group, tab, win } from '@tabsync/shared/testing';
 import { describe, expect, it } from 'vitest';
-import { openGroup, openTab } from '../src/lib/open';
+import { openGroup, openOrFocusTab, openTab } from '../src/lib/open';
 import { groupByDay, hostOf, windowSections } from '../src/ui/snapshot-view';
 import { FakeBrowser } from './fakes';
 
@@ -84,6 +84,57 @@ describe('opening from a snapshot', () => {
     const w = b.addWindow(['https://current/']);
     await openTab(b, w.id, tab('https://a/'), { active: false });
     expect(b.windows[0]!.tabs.find((t) => t.active)!.url).toBe('https://current/');
+  });
+
+  describe('openOrFocusTab', () => {
+    it('focuses the tab and its window when the URL is already open', async () => {
+      const b = new FakeBrowser();
+      const here = b.addWindow(['https://current/']);
+      const other = b.addWindow(['https://x/', 'https://a/page']);
+      const result = await openOrFocusTab(b, here.id, tab('https://a/page'));
+      expect(result).toBe('focused');
+      expect(b.windows.find((w) => w.focused)!.id).toBe(other.id);
+      expect(other.tabs.find((t) => t.active)!.url).toBe('https://a/page');
+      expect(b.windows.flatMap((w) => w.tabs)).toHaveLength(3);
+    });
+
+    it('matches through fragments and tracking parameters, preferring an exact URL', async () => {
+      const b = new FakeBrowser();
+      const w = b.addWindow(['https://a/page?utm_source=x', 'https://a/page#top']);
+      const [tracked, exact] = [w.tabs[0]!.id, w.tabs[1]!.id];
+      await openOrFocusTab(b, w.id, tab('https://a/page#top'));
+      expect(b.ops).toEqual([`focus ${exact}`]);
+      b.ops = [];
+      await openOrFocusTab(b, w.id, tab('https://a/page'));
+      expect(b.ops).toEqual([`focus ${tracked}`]);
+    });
+
+    it('prefers a match in the current window', async () => {
+      const b = new FakeBrowser();
+      b.addWindow(['https://a/']);
+      const here = b.addWindow(['https://other/', 'https://a/']);
+      await openOrFocusTab(b, here.id, tab('https://a/'));
+      expect(b.ops).toEqual([`focus ${here.tabs[1]!.id}`]);
+    });
+
+    it('opens a new tab when the URL isn’t open, and always for New Tab placeholders', async () => {
+      const b = new FakeBrowser();
+      const w = b.addWindow(['chrome://newtab/']);
+      expect(await openOrFocusTab(b, w.id, tab('https://new/'))).toBe('opened');
+      expect(await openOrFocusTab(b, w.id, tab(NEW_TAB_URL))).toBe('opened');
+      expect(b.windows[0]!.tabs.map((t) => t.url)).toEqual([
+        'chrome://newtab/',
+        'https://new/',
+        NEW_TAB_URL,
+      ]);
+    });
+
+    it('ignores private windows', async () => {
+      const b = new FakeBrowser();
+      const w = b.addWindow(['https://current/']);
+      b.addWindow(['https://secret/'], { incognito: true });
+      expect(await openOrFocusTab(b, w.id, tab('https://secret/'))).toBe('opened');
+    });
   });
 
   it('reopens a group with its title and colour, expanded', async () => {

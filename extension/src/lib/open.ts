@@ -1,7 +1,13 @@
-import { isNewTabUrl, type SnapGroup, type SnapTab } from '@tabsync/shared';
+import {
+  isNewTabUrl,
+  normalizeUrlForMatching,
+  type SnapGroup,
+  type SnapTab,
+} from '@tabsync/shared';
 import type { BrowserApi } from './browser';
 
 type Opener = Pick<BrowserApi, 'createTab' | 'groupTabs' | 'updateGroup'>;
+type Focuser = Opener & Pick<BrowserApi, 'getWindows' | 'focusTab'>;
 
 /** Opens one snapshot tab in `windowId`, focused unless `active` is false (e.g. cmd/ctrl-click). */
 export async function openTab(
@@ -16,6 +22,36 @@ export async function openTab(
     pinned: false,
     active,
   });
+}
+
+/**
+ * Focuses the tab if it's already open in a normal window, otherwise opens it (focused) in
+ * `windowId`. An exact URL beats one that differs only by fragment or tracking parameters, and
+ * the current window wins ties. New Tab placeholders always open a new tab.
+ */
+export async function openOrFocusTab(
+  browser: Focuser,
+  windowId: number,
+  tab: SnapTab,
+): Promise<'focused' | 'opened'> {
+  if (!isNewTabUrl(tab.url)) {
+    const normalized = normalizeUrlForMatching(tab.url);
+    const candidates = (await browser.getWindows())
+      .filter((w) => !w.incognito && (w.type === undefined || w.type === 'normal'))
+      .sort((a, b) => Number(b.id === windowId) - Number(a.id === windowId))
+      .flatMap((w) => w.tabs ?? [])
+      .filter((t) => t.id !== undefined);
+    const url = (t: { url?: string; pendingUrl?: string }) => t.url || t.pendingUrl || '';
+    const match =
+      candidates.find((t) => url(t) === tab.url) ??
+      candidates.find((t) => normalizeUrlForMatching(url(t)) === normalized);
+    if (match) {
+      await browser.focusTab(match.id!);
+      return 'focused';
+    }
+  }
+  await openTab(browser, windowId, tab);
+  return 'opened';
 }
 
 /**

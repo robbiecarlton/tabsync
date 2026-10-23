@@ -37,6 +37,8 @@ export interface BrowserApi {
     groupId: number,
     props: { title?: string; color?: GroupColor; collapsed?: boolean },
   ): Promise<void>;
+  /** Makes a tab active and brings its window to the front. */
+  focusTab(tabId: number): Promise<void>;
   /** Unloads a tab to save memory. Best effort. */
   discardTab(tabId: number): Promise<void>;
   removeTabs(tabIds: number[]): Promise<void>;
@@ -108,6 +110,10 @@ export const chromeBrowser: BrowserApi = {
   },
   async updateGroup(groupId, props) {
     await chrome.tabGroups.update(groupId, props);
+  },
+  async focusTab(tabId) {
+    const tab = await chrome.tabs.update(tabId, { active: true });
+    if (tab?.windowId !== undefined) await chrome.windows.update(tab.windowId, { focused: true });
   },
   discardTab: (tabId) => discardWhenCommitted(tabId),
   async removeTabs(tabIds) {

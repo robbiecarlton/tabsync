@@ -353,6 +353,13 @@ export class FakeBrowser implements BrowserApi {
     this.ops.push(`updateGroup ${groupId} ${Object.keys(props).join(',')}`);
   }
 
+  async focusTab(tabId: number) {
+    const w = this.windowOf(tabId);
+    for (const t of w.tabs) t.active = t.id === tabId;
+    for (const x of this.windows) x.focused = x === w;
+    this.ops.push(`focus ${tabId}`);
+  }
+
   async discardTab(tabId: number) {
     const tab = this.tab(tabId);
     if (tab.active) throw new Error('Cannot discard the active tab');

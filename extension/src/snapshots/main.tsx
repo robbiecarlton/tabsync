@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { SnapshotMeta } from '../lib/api';
 import { chromeBrowser } from '../lib/browser';
 import { send } from '../lib/messages';
-import { openGroup, openTab } from '../lib/open';
+import { openGroup, openOrFocusTab, openTab } from '../lib/open';
 import { Favicon } from '../ui/Favicon';
 import { formatWhen } from '../ui/format';
 import { groupByDay, hostOf, KIND_LABEL, windowSections, type Section } from '../ui/snapshot-view';
@@ -32,10 +32,12 @@ const currentWindowId = () => chrome.windows.getCurrent().then((w) => w.id!);
 const idFromHash = () => decodeURIComponent(location.hash.slice(1)) || undefined;
 
 function TabRow({ tab }: { tab: SnapTab }) {
+  // Click: focus the tab if it's already open, else open it. Cmd/Ctrl-click: always a new
+  // background tab.
   const open = async (e: MouseEvent) => {
-    await openTab(chromeBrowser, await currentWindowId(), tab, {
-      active: !(e.metaKey || e.ctrlKey),
-    });
+    const windowId = await currentWindowId();
+    if (e.metaKey || e.ctrlKey) await openTab(chromeBrowser, windowId, tab, { active: false });
+    else await openOrFocusTab(chromeBrowser, windowId, tab);
   };
   return (
     <li class="snap-tab">
@@ -92,8 +94,8 @@ function SnapshotDetail({ snapshot, label }: { snapshot: Snapshot; label?: strin
           {KIND_LABEL[snapshot.reason]}
           {label && ` · ${label}`} · {snapshot.windows.length}{' '}
           {snapshot.windows.length === 1 ? 'window' : 'windows'} · {tabCount}{' '}
-          {tabCount === 1 ? 'tab' : 'tabs'} · click a tab to open it (⌘/Ctrl-click: in the
-          background)
+          {tabCount === 1 ? 'tab' : 'tabs'} · click a tab to go to it (⌘/Ctrl-click: open a new
+          background tab)
         </p>
       </div>
       {snapshot.windows.map((w, i) => (
